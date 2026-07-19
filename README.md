@@ -1,15 +1,12 @@
-# ТАНИЛ — GitHub Pages хувилбар
+# ТАНИЛ — GitHub Pages
 
-## Нийтлэх алхам
+Энэ ZIP-ийн файлуудыг задлахгүйгээр GitHub руу шууд upload хийж болохгүй. ZIP-ээ утсан дээрээ задлаад, доторх `index.html`, `.nojekyll`, `README.md` файлуудыг repository-ийн үндсэн хэсэгт байршуулна.
 
-1. GitHub дээр шинэ repository үүсгэнэ. Жишээ нэр: `tanil`.
-2. Энэ хавтас доторх `index.html` болон `.nojekyll` файлыг repository-ийн үндсэн хэсэгт upload хийнэ.
-3. Repository → **Settings** → **Pages** руу орно.
-4. **Build and deployment** хэсгээс **Deploy from a branch** сонгоно.
-5. Branch: `main`, Folder: `/ (root)` → **Save**.
-6. Хэдэн минутын дараа линк гарна:
-   `https://ТАНЫ-GITHUB-НЭР.github.io/tanil/`
+GitHub Pages тохиргоо:
+1. Repository → Settings → Pages
+2. Source: Deploy from a branch
+3. Branch: main
+4. Folder: /(root)
+5. Save
 
-## Анхаарах зүйл
-
-Энэ хувилбар GitHub Pages дээр нээгдэнэ. Гэхдээ бүртгэл, төлбөрийн хүсэлт, чат, админы зөвшөөрөл нь одоогоор тухайн хэрэглэгчийн browser дотор хадгалагдана. Өөр өөр утаснаас ирсэн бүртгэлийг нэг админ хэсэгт төвлөрүүлэхийн тулд Firebase эсвэл Supabase холбоно.
+Нүүр хуудасны файл repository-ийн үндсэн хэсэгт яг `index.html` нэртэй байх ёстой.
