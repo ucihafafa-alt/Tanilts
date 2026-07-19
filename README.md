@@ -1,12 +1,29 @@
-# ТАНИЛ — GitHub Pages
+# ТАНИЛ — Firebase холболттой хувилбар
 
-Энэ ZIP-ийн файлуудыг задлахгүйгээр GitHub руу шууд upload хийж болохгүй. ZIP-ээ утсан дээрээ задлаад, доторх `index.html`, `.nojekyll`, `README.md` файлуудыг repository-ийн үндсэн хэсэгт байршуулна.
+## GitHub-д оруулах
+ZIP-ийг задлаад дараах файлуудыг `Tanilts` repository-ийн үндсэн хэсэгт upload хийнэ:
 
-GitHub Pages тохиргоо:
-1. Repository → Settings → Pages
-2. Source: Deploy from a branch
-3. Branch: main
-4. Folder: /(root)
-5. Save
+- `index.html`
+- `firebase-config.js`
+- `firebase-bridge.js`
+- `.nojekyll`
 
-Нүүр хуудасны файл repository-ийн үндсэн хэсэгт яг `index.html` нэртэй байх ёстой.
+ZIP файлыг өөрийг нь GitHub-д бүү оруул.
+
+## Firebase дээр хийх 2 тохиргоо
+
+### 1. Firestore дүрэм
+Firebase Console → Firestore Database → Rules руу орж `firestore.rules` файлын бүх агуулгыг хуулж тавиад **Publish** дар.
+
+### 2. GitHub домэйн зөвшөөрөх
+Firebase Console → Authentication → Settings → Authorized domains → Add domain:
+
+`ucihafafa-alt.github.io`
+
+## Ашиглалт
+- Бүртгэл: 8 оронтой утас + 6 оронтой PIN
+- Нэвтрэлт: өөр утас, өөр browser-оос ажиллана
+- Профайл зураг: жижигрүүлэгдээд Firestore-д хадгалагдана
+- Firebase Storage шаардлагагүй
+
+Анхаар: хуучин localStorage бүртгэл Firebase рүү автоматаар шилжихгүй. Шинэ хувилбар тавьсны дараа дахин бүртгүүлнэ.
