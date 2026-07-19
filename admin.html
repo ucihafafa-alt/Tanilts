@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ТАНИЛ — Админ</title>
+<style>
+:root{color-scheme:dark;--bg:#0e0912;--card:#1d1423;--line:#493752;--text:#fff;--muted:#c9b9cf;--pink:#ff4f8b;--violet:#8f63ff;--green:#39d99b;--red:#ff6b7a}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(circle at top,#341b3c 0,#0e0912 46%);color:var(--text);min-height:100vh}.wrap{width:min(100%,720px);margin:auto;padding:22px 15px 60px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.brand{font-size:24px;font-weight:950}.badge{font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}.card{background:rgba(29,20,35,.96);border:1px solid var(--line);border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 18px 45px rgba(0,0,0,.28)}h1,h2,h3{margin:0 0 12px}.field{width:100%;border:1px solid var(--line);background:#120c17;color:#fff;border-radius:14px;padding:14px 13px;font-size:16px;margin:7px 0}.btn{border:0;border-radius:14px;padding:13px 14px;font-weight:850;color:white;background:linear-gradient(135deg,var(--pink),var(--violet));cursor:pointer}.btn.full{width:100%;margin-top:8px}.btn.secondary{background:#302039}.btn.green{background:#176947}.btn.red{background:#722737}.row{display:flex;gap:8px}.row .btn{flex:1}.small{font-size:13px;color:var(--muted);line-height:1.5}.notice{padding:12px;border-radius:14px;background:#2a2030;border:1px solid var(--line);color:var(--muted)}.item{padding:13px;border-radius:16px;background:#160f1b;border:1px solid #3d2b47;margin-top:10px}.state{display:inline-block;margin:8px 0;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.pending{background:#49381e;color:#ffd685}.approved{background:#173d30;color:#70ebbb}.rejected{background:#4a2028;color:#ff9cab}.hidden{display:none}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.stat{background:#130d18;border:1px solid #3a2943;border-radius:15px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.tabs{display:flex;gap:8px;margin:12px 0}.tabs button{flex:1}.back{color:#fff;text-decoration:none;font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand">ТАНИЛ · АДМИН</div><a class="back" href="./">Сайт руу</a></div>
+
+  <section id="loginCard" class="card">
+    <h1>Админ нэвтрэх</h1>
+    <div class="small">Админ эрхтэй бүртгэлийн утасны дугаар, 6 оронтой PIN-ээ оруулна.</div>
+    <input id="phone" class="field" inputmode="numeric" maxlength="8" placeholder="Утасны дугаар">
+    <input id="pin" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6 оронтой PIN">
+    <button id="loginBtn" class="btn full">Нэвтрэх</button>
+    <div id="loginMsg" class="small" style="margin-top:10px"></div>
+  </section>
+
+  <section id="panel" class="hidden">
+    <div class="card">
+      <div class="top"><div><h2>Админ самбар</h2><div id="who" class="small"></div></div><button id="logoutBtn" class="btn secondary">Гарах</button></div>
+      <div class="stats"><div class="stat"><b id="pendingCount">0</b><span class="small">Хүлээгдэж буй</span></div><div class="stat"><b id="approvedCount">0</b><span class="small">Зөвшөөрсөн</span></div><div class="stat"><b id="pinCount">0</b><span class="small">PIN хүсэлт</span></div></div>
+      <button id="refreshBtn" class="btn full secondary">Шинэчлэх</button>
+    </div>
+
+    <div class="card">
+      <h2>Төлбөрийн хүсэлтүүд</h2>
+      <div class="notice">Админд зөвхөн хэрэглэгчийн утасны дугаар харагдана.</div>
+      <div id="payments"></div>
+    </div>
+
+    <div class="card">
+      <h2>PIN сэргээх хүсэлт</h2>
+      <div id="pins"></div>
+    </div>
+  </section>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+const cfg=window.TANIL_FIREBASE_CONFIG;
+firebase.initializeApp(cfg);
+const auth=firebase.auth(),db=firebase.firestore();
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const phoneEmail=p=>`${String(p).replace(/\D/g,'')}@tanil.app`;
+const money=n=>new Intl.NumberFormat('mn-MN').format(Number(n||0))+'₮';
+const formatTime=t=>{try{return t?.toDate?t.toDate().toLocaleString('mn-MN'):''}catch{return ''}};
+async function isAdmin(uid){const s=await db.collection('admins').doc(uid).get();return s.exists&&s.data().active===true}
+async function login(){
+  $('loginMsg').textContent='Нэвтэрч байна...';
+  try{const ph=$('phone').value.replace(/\D/g,'');const pn=$('pin').value.trim();if(ph.length!==8||pn.length!==6)throw new Error('8 оронтой утас, 6 оронтой PIN оруулна.');const c=await auth.signInWithEmailAndPassword(phoneEmail(ph),pn);if(!await isAdmin(c.user.uid)){await auth.signOut();throw new Error('Энэ бүртгэл админ эрхгүй байна.');}await showPanel();}catch(e){$('loginMsg').textContent=e.message||'Нэвтрэхэд алдаа гарлаа.'}}
+async function showPanel(){const u=auth.currentUser;if(!u||!await isAdmin(u.uid)){showLogin();return}$('loginCard').classList.add('hidden');$('panel').classList.remove('hidden');$('who').textContent=u.email.replace('@tanil.app','');await loadData()}
+function showLogin(){$('panel').classList.add('hidden');$('loginCard').classList.remove('hidden')}
+async function loadData(){
+  $('payments').innerHTML='<div class="small">Уншиж байна...</div>';$('pins').innerHTML='<div class="small">Уншиж байна...</div>';
+  try{
+    const [ps,rs]=await Promise.all([db.collection('paymentRequests').orderBy('createdAt','desc').limit(300).get(),db.collection('pinResetRequests').where('status','==','pending').limit(200).get()]);
+    const pay=ps.docs.map(d=>({id:d.id,...d.data()})),pins=rs.docs.map(d=>({id:d.id,...d.data()}));
+    $('pendingCount').textContent=pay.filter(x=>x.status==='pending').length;$('approvedCount').textContent=pay.filter(x=>x.status==='approved').length;$('pinCount').textContent=pins.length;
+    $('payments').innerHTML=pay.length?pay.map(r=>`<div class="item"><b>📱 ${esc(r.phone)}</b><div class="small">${esc(r.planType||'Premium')} · ${esc(r.duration||'')} · ${money(r.price)}<br>${formatTime(r.createdAt)}</div><span class="state ${esc(r.status)}">${r.status==='pending'?'ХҮЛЭЭГДЭЖ БУЙ':r.status==='approved'?'ЗӨВШӨӨРСӨН':'ТАТГАЛЗСАН'}</span>${r.status==='pending'?`<div class="row"><button class="btn green" onclick="setStatus('${r.id}','approved')">Зөвшөөрөх</button><button class="btn red" onclick="setStatus('${r.id}','rejected')">Татгалзах</button></div>`:''}</div>`).join(''):'<div class="small">Хүсэлт алга.</div>';
+    $('pins').innerHTML=pins.length?pins.map(r=>`<div class="item"><b>📱 ${esc(r.phone)}</b><div class="small">${formatTime(r.createdAt)}</div><div class="small">PIN-ийг Authentication → Users хэсгээс тухайн хэрэглэгч дээр шинэчилнэ.</div></div>`).join(''):'<div class="small">Хүсэлт алга.</div>';
+  }catch(e){$('payments').innerHTML=`<div class="notice">${esc(e.message)}</div>`;$('pins').innerHTML=''}
+}
+window.setStatus=async(id,status)=>{
+  try{const ref=db.collection('paymentRequests').doc(id);await db.runTransaction(async tx=>{const s=await tx.get(ref);if(!s.exists)throw new Error('Хүсэлт олдсонгүй.');const r=s.data();tx.update(ref,{status,reviewedAt:firebase.firestore.FieldValue.serverTimestamp(),reviewedBy:auth.currentUser.uid});if(status==='approved'){const ur=db.collection('users').doc(r.uid),us=await tx.get(ur);const days=Number(r.days||r.durationDays||30);const old=Number(us.data()?.membershipUntil||0);tx.update(ur,{membershipUntil:Math.max(Date.now(),old)+days*86400000,premium:true});}});await loadData()}catch(e){alert(e.message)}};
+$('loginBtn').onclick=login;$('refreshBtn').onclick=loadData;$('logoutBtn').onclick=async()=>{await auth.signOut();showLogin()};
+auth.onAuthStateChanged(async u=>{if(u&&await isAdmin(u.uid))showPanel();else showLogin()});
+</script>
+</body>
+</html>

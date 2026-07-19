@@ -1,20 +1,15 @@
-# ТАНИЛ — Firebase шинэчилсэн хувилбар
+# ТАНИЛ — Firebase + Админ самбар
 
-Энэ хувилбарт:
-- Firebase бүртгэл ба утас + 6 оронтой PIN нэвтрэлт
-- Бүх төхөөрөмжөөс нэвтрэх
-- Профайл хайлт
-- Like
-- Premium эрхтэй Firebase чат
-- Төлбөрийн хүсэлт
-- Админ төлбөр баталгаажуулалт
-- PIN сэргээх хүсэлт
+GitHub repository-ийн үндсэн хэсэгт бүх файлыг upload хийнэ.
 
-## GitHub-д оруулах
-ZIP-ийг задлаад доторх файлуудыг `Tanilts` repository-ийн үндсэн хэсэгт upload хийнэ. Ижил нэртэй файлууд автоматаар шинэчлэгдэнэ.
+Админ хуудас:
 
-## Firestore Rules
-Firebase Console → Firestore Database → Rules хэсэгт `firestore.rules` файлын агуулгыг тавиад Publish дар.
+`https://ucihafafa-alt.github.io/Tanilts/admin.html`
 
-## Анхаарах зүйл
-Админ ажиллуулахын тулд Firestore-ийн `admins` collection-д админы Firebase UID нэртэй document үүсгэж `active: true` boolean field нэмэх шаардлагатай.
+Админ эрх үүсгэх:
+
+1. Firebase Authentication → Users дээр өөрийн User UID-г хуул.
+2. Firestore Data үндсэн түвшинд `admins` collection үүсгэнэ.
+3. Document ID = тухайн User UID.
+4. `active` талбар: boolean, `true`.
+5. Firestore Rules дээр энэ багцын `firestore.rules` кодыг Publish хийнэ.
