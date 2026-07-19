@@ -308,3 +308,115 @@
   // Original page initAuth() already ran before this file loaded. Re-run using Firebase.
   initAuth();
 })();
+
+/* ===== TANIL Firebase нэмэлт боломжууд: Like + Chat ===== */
+(() => {
+  'use strict';
+  if (!window.firebase || !firebase.apps.length) return;
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  let chatUnsubscribe = null;
+  let activeChatTarget = null;
+
+  const safe = (v) => typeof esc === 'function' ? esc(String(v ?? '')) : String(v ?? '')
+    .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const profileKey = p => String(p?.uid || p?.id || '');
+  const chatIdFor = (a,b) => [a,b].sort().join('_');
+
+  window.openProfileByKey = function(key) {
+    const p = profiles.find(x => profileKey(x) === String(key));
+    if (!p) return alert('Профайл олдсонгүй.');
+    selectedProfile = p;
+    slideIndex = 0;
+    renderProfile();
+    profileModal.classList.add('show');
+  };
+
+  // Firebase профайлын string id-г зөв нээдэг карт.
+  cardHtml = function(p) {
+    const key = safe(profileKey(p));
+    return `<article class="card"><div class="photo"><img src="${profileImg(p)}"><span class="statusDot">${p.status==='Идэвхтэй'?'● ':''}${safe(p.status)}</span></div><div class="cardbody"><div class="name">${safe((p.name||'Г')[0])}••••, ${Number(p.age||18)}</div><div class="meta">${safe(p.gender)} · ${safe(p.city)}<br>${safe(p.job)}</div><span class="goal">${safe(p.goal)}</span><div class="tags">${(p.interests||[]).slice(0,2).map(x=>`<span class="tag">${safe(x)}</span>`).join('')}</div><button class="open" onclick="openProfileByKey('${key}')">Профайл үзэх</button></div></article>`;
+  };
+
+  async function likeState(targetUid) {
+    const me = auth.currentUser;
+    if (!me || !targetUid) return false;
+    const snap = await db.collection('likes').doc(`${me.uid}_${targetUid}`).get();
+    return snap.exists;
+  }
+
+  window.toggleLike = async function(targetUid) {
+    const me = auth.currentUser;
+    if (!me) return alert('Эхлээд нэвтэрнэ үү.');
+    if (!targetUid || targetUid === me.uid) return alert('Өөрийн профайлд лайк дарах боломжгүй.');
+    const ref = db.collection('likes').doc(`${me.uid}_${targetUid}`);
+    try {
+      const snap = await ref.get();
+      if (snap.exists) await ref.delete();
+      else await ref.set({ fromUid: me.uid, toUid: targetUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      renderProfile();
+    } catch (e) { alert(e.message || 'Лайк хадгалахад алдаа гарлаа.'); }
+  };
+
+  const baseRenderProfile = renderProfile;
+  renderProfile = async function() {
+    const p = selectedProfile;
+    if (!p) return;
+    const targetUid = p.uid || '';
+    const imgs = p.userPhoto ? [p.userPhoto] : (p.photos||[]).map(i=>images[i]);
+    const img = imgs[slideIndex] || profileImg(p);
+    const full = hasMembership();
+    let liked = false;
+    try { liked = await likeState(targetUid); } catch (_) {}
+    profileContent.innerHTML = `<div class="slider ${full?'':'locked'}"><img src="${img}">${imgs.length>1?`<button class="slideNav prev" onclick="changeSlide(-1)">‹</button><button class="slideNav next" onclick="changeSlide(1)">›</button>`:''}</div><div class="dots">${imgs.map((_,i)=>`<span class="dot ${i===slideIndex?'on':''}"></span>`).join('')}</div><h2 style="margin:5px 0">${full?safe(p.name):(p.name||'Г')[0]+'••••'}, ${Number(p.age||18)}</h2><div class="meta">${safe(p.gender)} · ${safe(p.city)} · ${safe(p.job)} · ${safe(p.status)}</div><p>${safe(p.bio)}</p><span class="goal">${safe(p.goal)}</span><div class="tags">${(p.interests||[]).map(x=>`<span class="tag">${safe(x)}</span>`).join('')}</div>${targetUid?`<button class="btn secondary full" onclick="toggleLike('${safe(targetUid)}')">${liked?'♥ Таалагдсан':'♡ Таалагдлаа'}</button>`:''}${full?`<button class="btn green full" onclick="openDirectChat()">Шууд чатлах</button>`:`<div class="notice" style="margin-top:14px">Бүтэн мэдээлэл болон чатлах эрх авахын тулд төлбөрөө шилжүүлж, админы зөвшөөрөл хүлээнэ.</div><button class="btn full" onclick="openPay()">Эрх авах</button>`}<button class="btn secondary full" onclick="closeModal('profileModal')">Хаах</button>`;
+  };
+
+  window.openDirectChat = async function() {
+    const me = auth.currentUser;
+    const p = selectedProfile;
+    if (!me || !p?.uid) return alert('Чат нээх боломжгүй байна.');
+    if (!hasMembership()) return openPay();
+    if (p.uid === me.uid) return alert('Өөртэйгөө чатлах боломжгүй.');
+    closeModal('profileModal');
+    genericModal.classList.add('show');
+    activeChatTarget = p;
+    const chatId = chatIdFor(me.uid, p.uid);
+    const chatRef = db.collection('chats').doc(chatId);
+    try {
+      await chatRef.set({ members:[me.uid,p.uid].sort(), updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
+    } catch (_) {}
+    genericContent.innerHTML = `<h2>${safe(p.name)}, ${Number(p.age||18)}</h2><div class="meta">${safe(p.gender)} · ${safe(p.city)} · ${safe(p.job)}</div><div id="chatbox" class="chat"><div class="small">Мессеж уншиж байна...</div></div><div style="display:flex;gap:8px;margin-top:10px"><input id="chatInput" class="field" maxlength="500" placeholder="Мессеж бичих..." onkeydown="if(event.key==='Enter')sendChatMessage()"><button class="btn" onclick="sendChatMessage()">Илгээх</button></div><button class="btn secondary full" onclick="closeTanilChat()">Хаах</button>`;
+    if (chatUnsubscribe) chatUnsubscribe();
+    chatUnsubscribe = chatRef.collection('messages').orderBy('createdAt','asc').limit(200).onSnapshot(snap => {
+      const box = document.getElementById('chatbox');
+      if (!box) return;
+      box.innerHTML = snap.empty ? '<div class="small">Одоогоор мессеж алга.</div>' : snap.docs.map(d => {
+        const m = d.data();
+        const mine = m.senderUid === me.uid;
+        return `<div class="bubble" style="margin-left:${mine?'18%':'0'};margin-right:${mine?'0':'18%'};opacity:${mine?'1':'.9'}"><b>${mine?'Та':safe(p.name)}</b><br>${safe(m.text)}</div>`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }, e => { const box=document.getElementById('chatbox'); if(box) box.innerHTML=`<div class="notice">${safe(e.message)}</div>`; });
+  };
+
+  window.sendChatMessage = async function() {
+    const me = auth.currentUser;
+    const input = document.getElementById('chatInput');
+    const text = String(input?.value || '').trim();
+    if (!me || !activeChatTarget?.uid || !text) return;
+    if (!hasMembership()) return alert('Чатлах эрх идэвхгүй байна.');
+    const chatId = chatIdFor(me.uid, activeChatTarget.uid);
+    input.value = '';
+    try {
+      const ref = db.collection('chats').doc(chatId);
+      await ref.set({ members:[me.uid,activeChatTarget.uid].sort(), updatedAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessage:text.slice(0,120) }, {merge:true});
+      await ref.collection('messages').add({ senderUid:me.uid, text:text.slice(0,500), createdAt:firebase.firestore.FieldValue.serverTimestamp() });
+    } catch (e) { alert(e.message || 'Мессеж илгээхэд алдаа гарлаа.'); }
+  };
+
+  window.closeTanilChat = function() {
+    if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+    activeChatTarget = null;
+    closeModal('genericModal');
+  };
+})();

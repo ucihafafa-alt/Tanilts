@@ -7,6 +7,9 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
     }
+    function isMember(data) {
+      return signedIn() && request.auth.uid in data.members;
+    }
 
     match /users/{uid} {
       allow create: if signedIn() && request.auth.uid == uid;
@@ -19,6 +22,27 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update: if signedIn() && request.auth.uid == uid;
       allow delete: if false;
+    }
+
+    match /likes/{likeId} {
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow read, delete: if signedIn() && resource.data.fromUid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /chats/{chatId} {
+      allow create: if signedIn() && request.auth.uid in request.resource.data.members;
+      allow read, update: if isMember(resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow create: if signedIn() &&
+          request.resource.data.senderUid == request.auth.uid &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow update, delete: if false;
+      }
     }
 
     match /paymentRequests/{id} {

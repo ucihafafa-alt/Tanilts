@@ -1,29 +1,20 @@
-# ТАНИЛ — Firebase холболттой хувилбар
+# ТАНИЛ — Firebase шинэчилсэн хувилбар
+
+Энэ хувилбарт:
+- Firebase бүртгэл ба утас + 6 оронтой PIN нэвтрэлт
+- Бүх төхөөрөмжөөс нэвтрэх
+- Профайл хайлт
+- Like
+- Premium эрхтэй Firebase чат
+- Төлбөрийн хүсэлт
+- Админ төлбөр баталгаажуулалт
+- PIN сэргээх хүсэлт
 
 ## GitHub-д оруулах
-ZIP-ийг задлаад дараах файлуудыг `Tanilts` repository-ийн үндсэн хэсэгт upload хийнэ:
+ZIP-ийг задлаад доторх файлуудыг `Tanilts` repository-ийн үндсэн хэсэгт upload хийнэ. Ижил нэртэй файлууд автоматаар шинэчлэгдэнэ.
 
-- `index.html`
-- `firebase-config.js`
-- `firebase-bridge.js`
-- `.nojekyll`
+## Firestore Rules
+Firebase Console → Firestore Database → Rules хэсэгт `firestore.rules` файлын агуулгыг тавиад Publish дар.
 
-ZIP файлыг өөрийг нь GitHub-д бүү оруул.
-
-## Firebase дээр хийх 2 тохиргоо
-
-### 1. Firestore дүрэм
-Firebase Console → Firestore Database → Rules руу орж `firestore.rules` файлын бүх агуулгыг хуулж тавиад **Publish** дар.
-
-### 2. GitHub домэйн зөвшөөрөх
-Firebase Console → Authentication → Settings → Authorized domains → Add domain:
-
-`ucihafafa-alt.github.io`
-
-## Ашиглалт
-- Бүртгэл: 8 оронтой утас + 6 оронтой PIN
-- Нэвтрэлт: өөр утас, өөр browser-оос ажиллана
-- Профайл зураг: жижигрүүлэгдээд Firestore-д хадгалагдана
-- Firebase Storage шаардлагагүй
-
-Анхаар: хуучин localStorage бүртгэл Firebase рүү автоматаар шилжихгүй. Шинэ хувилбар тавьсны дараа дахин бүртгүүлнэ.
+## Анхаарах зүйл
+Админ ажиллуулахын тулд Firestore-ийн `admins` collection-д админы Firebase UID нэртэй document үүсгэж `active: true` boolean field нэмэх шаардлагатай.
