@@ -1,10 +1,12 @@
-1. GitHub repository-ийн үндсэн хэсэгт энэ ZIP-ийн бүх 7 үндсэн файлыг upload/replace хийнэ.
-2. Firebase Console → Firestore Database → Rules руу орно.
-3. firestore.rules файлын БҮХ кодыг хуучин Rules-ийн оронд тавина.
-4. Publish дарна.
-5. Сайтаас гараад дахин нэвтэрнэ, эсвэл Ctrl+F5 / browser cache refresh хийнэ.
+ТАНИЛ v4 — чат нээх permission-denied засвар
 
-Анхаарах нь:
-- Хуучин Rules дотор chats-ийн талбар `members` байсан.
-- Шинэ сайт `memberUids` ашигладаг.
-- Rules-ээ Publish хийгээгүй үед админ төлбөр зөвшөөрсөн байсан ч чат permission-denied өгнө.
+1. GitHub repository-ийн үндсэн түвшинд энэ багцын бүх файлыг upload/replace хийнэ.
+2. Commit changes дарна.
+3. GitHub Pages шинэчлэгдэхэд 1–3 минут хүлээнэ.
+4. Сайтаа нээж Ctrl+F5 (утсан дээр cache/history цэвэрлэх эсвэл Incognito) хийнэ.
+5. Firestore Rules-ийг энэ багцын firestore.rules файлаар Publish хийсэн байх ёстой.
+
+Гол засвар:
+- Шинэ чат үүсгэхийн өмнө байхгүй document дээр get() хийхээ больсон.
+- set(..., {merge:true}) ашигласнаар permission-denied арилна.
+- index.html дээр firebase-bridge.js?v=4.1 cache-busting нэмсэн.

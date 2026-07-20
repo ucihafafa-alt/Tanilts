@@ -489,17 +489,14 @@
 
     if (createData) {
       try {
-        const existing = await chatRef.get();
-        if (!existing.exists) {
-          await chatRef.set({
-            ...createData,
-            updatedAt: serverTime(),
-            lastMessage: '',
-            lastSenderType: '',
-            adminUnread: false,
-            userUnread: false
-          });
-        }
+        // Шинэ чат дээр урьдчилж get() хийхэд Firestore-ийн read rule
+        // байхгүй document-ийг уншихыг хориглож permission-denied өгдөг.
+        // Merge set нь document байхгүй бол create, байвал зөвхөн updatedAt-ийг
+        // шинэчилж, чатны оролцогчдыг өөрчлөхгүй.
+        await chatRef.set({
+          ...createData,
+          updatedAt: serverTime()
+        }, { merge: true });
       } catch (err) {
         return alert(firebaseError(err));
       }
