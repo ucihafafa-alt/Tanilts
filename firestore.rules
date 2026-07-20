@@ -1,59 +1,185 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function isAdmin() {
-      return signedIn() &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
+    function signedIn() {
+      return request.auth != null;
     }
-    function isMember(data) {
-      return signedIn() && request.auth.uid in data.members;
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
+    }
+
+    function chat(chatId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)).data;
+    }
+
+    function isChatMember(chatId) {
+      return signedIn() && request.auth.uid in chat(chatId).memberUids;
+    }
+
+    function validManagedProfile(profileId) {
+      return profileId is string
+        && exists(/databases/$(database)/documents/managedProfiles/$(profileId))
+        && get(/databases/$(database)/documents/managedProfiles/$(profileId)).data.active == true;
+    }
+
+    function validMemberChatCreate() {
+      return request.resource.data.mode == 'member'
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == 2
+        && request.resource.data.memberUids[0] != request.resource.data.memberUids[1]
+        && request.auth.uid in request.resource.data.memberUids
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validManagedChatCreate() {
+      return request.resource.data.mode == 'managed'
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == 1
+        && request.resource.data.memberUids[0] == request.auth.uid
+        && validManagedProfile(request.resource.data.managedProfileId)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function chatIdentityUnchanged() {
+      return request.resource.data.mode == resource.data.mode
+        && request.resource.data.memberUids == resource.data.memberUids
+        && (
+          (
+            resource.data.mode == 'member'
+            && !('managedProfileId' in resource.data)
+            && !('managedProfileId' in request.resource.data)
+          )
+          ||
+          (
+            resource.data.mode == 'managed'
+            && request.resource.data.managedProfileId == resource.data.managedProfileId
+          )
+        );
+    }
+
+    function validPlan(planId, price) {
+      return (planId == 'basic1' && price == 20000)
+        || (planId == 'basic6' && price == 100000)
+        || (planId == 'basic12' && price == 180000)
+        || (planId == 'deep1' && price == 40000)
+        || (planId == 'deep6' && price == 200000)
+        || (planId == 'deep12' && price == 360000);
     }
 
     match /users/{uid} {
-      allow create: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() == 8
+        && request.resource.data.membershipUntil == 0
+        && request.resource.data.premium == false;
+
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow update: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      allow update: if isAdmin() || (
+        signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'age', 'gender', 'city', 'job', 'goal', 'bio', 'photo', 'status', 'updatedAt'
+        ])
+      );
+
       allow delete: if false;
     }
 
     match /publicProfiles/{uid} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'age', 'gender', 'city', 'job', 'goal', 'bio', 'photo', 'status', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // ТАНИЛ багийн удирдлагатай, хэрэглэгчид ил тод тэмдэглэгддэг профайлууд.
+    match /managedProfiles/{profileId} {
+      allow read: if signedIn() && (resource.data.active == true || isAdmin());
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
 
     match /likes/{likeId} {
-      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.toUid is string
+        && request.resource.data.createdAt == request.time;
       allow read, delete: if signedIn() && resource.data.fromUid == request.auth.uid;
       allow update: if false;
     }
 
     match /chats/{chatId} {
-      allow create: if signedIn() && request.auth.uid in request.resource.data.members;
-      allow read, update: if isMember(resource.data);
+      allow create: if signedIn() && (validMemberChatCreate() || validManagedChatCreate());
+      allow read: if (signedIn() && request.auth.uid in resource.data.memberUids)
+        || (isAdmin() && resource.data.mode == 'managed');
+
+      allow update: if (isAdmin() && resource.data.mode == 'managed') || (
+        signedIn()
+        && request.auth.uid in resource.data.memberUids
+        && chatIdentityUnchanged()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'updatedAt', 'lastMessage', 'lastSenderType', 'adminUnread', 'userUnread'
+        ])
+      );
+
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if signedIn() &&
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
-        allow create: if signedIn() &&
-          request.resource.data.senderUid == request.auth.uid &&
-          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow read: if isChatMember(chatId) || (isAdmin() && chat(chatId).mode == 'managed');
+
+        allow create: if request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.createdAt == request.time
+          && (
+            (
+              isChatMember(chatId)
+              && request.resource.data.senderType == 'user'
+              && request.resource.data.senderUid == request.auth.uid
+              && !('senderProfileId' in request.resource.data)
+            )
+            ||
+            (
+              isAdmin()
+              && chat(chatId).mode == 'managed'
+              && request.resource.data.senderType == 'managed_profile'
+              && request.resource.data.senderProfileId == chat(chatId).managedProfileId
+              && !('senderUid' in request.resource.data)
+            )
+          );
+
         allow update, delete: if false;
       }
     }
 
     match /paymentRequests/{id} {
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() == 8
+        && request.resource.data.status == 'pending'
+        && validPlan(request.resource.data.planId, request.resource.data.price)
+        && request.resource.data.createdAt == request.time;
       allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       allow update: if isAdmin();
       allow delete: if false;
     }
 
     match /pinResetRequests/{id} {
-      allow create: if signedIn() || request.resource.data.phone is string;
+      allow create: if request.resource.data.keys().hasOnly(['phone', 'status', 'createdAt'])
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() == 8
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
       allow read, update: if isAdmin();
       allow delete: if false;
     }

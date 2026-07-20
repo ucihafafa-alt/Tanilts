@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+
   const cfg = window.TANIL_FIREBASE_CONFIG || {};
   const configured = cfg.apiKey && !String(cfg.apiKey).startsWith('PASTE_');
   if (!configured) {
@@ -10,14 +11,43 @@
   if (!firebase.apps.length) firebase.initializeApp(cfg);
   const auth = firebase.auth();
   const db = firebase.firestore();
-  let cachedUser = null;
-  let unsubscribeProfiles = null;
-  let unsubscribeMyProfile = null;
 
-  const phoneEmail = phone => `${String(phone).replace(/\D/g, '')}@tanil.app`;
+  const PROFILE_MEMBER = 'member';
+  const PROFILE_MANAGED = 'team_managed';
+  const MANAGED_DISCLOSURE = 'Энэ профайлын мессежийг ТАНИЛ багийн ажилтан бичиж болно.';
+
+  let cachedUser = null;
+  let publicProfileRows = [];
+  let managedProfileRows = [];
+  let unsubscribeProfiles = null;
+  let unsubscribeManagedProfiles = null;
+  let unsubscribeMyProfile = null;
+  let chatUnsubscribe = null;
+  let chatsUnsubscribe = null;
+  let activeChat = null;
+  let activeChatProfile = null;
+
+  const phoneEmail = phone => `${String(phone || '').replace(/\D/g, '')}@tanil.app`;
   const cleanPhone = value => String(value || '').replace(/\D/g, '');
   const serverTime = () => firebase.firestore.FieldValue.serverTimestamp();
-  const escSafe = text => typeof esc === 'function' ? esc(String(text ?? '')) : String(text ?? '');
+  const safe = value => typeof esc === 'function'
+    ? esc(String(value ?? ''))
+    : String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function firebaseError(err) {
+    console.error(err);
+    const map = {
+      'auth/email-already-in-use': 'Энэ утасны дугаар бүртгэлтэй байна.',
+      'auth/invalid-credential': 'Утасны дугаар эсвэл PIN буруу байна.',
+      'auth/wrong-password': 'Утасны дугаар эсвэл PIN буруу байна.',
+      'auth/user-not-found': 'Утасны дугаар эсвэл PIN буруу байна.',
+      'auth/weak-password': 'PIN заавал 6 оронтой байна.',
+      'auth/network-request-failed': 'Интернэт холболтоо шалгана уу.',
+      'auth/operation-not-allowed': 'Firebase Authentication дээр Email/Password нэвтрэлтийг идэвхжүүлнэ үү.',
+      'permission-denied': 'Энэ үйлдлийг хийх эрхгүй байна.'
+    };
+    return map[err?.code] || err?.message || 'Алдаа гарлаа. Дахин оролдоно уу.';
+  }
 
   async function compressProfileImage(dataUrl) {
     return new Promise((resolve, reject) => {
@@ -44,20 +74,6 @@
     });
   }
 
-  function firebaseError(err) {
-    console.error(err);
-    const map = {
-      'auth/email-already-in-use': 'Энэ утасны дугаар бүртгэлтэй байна.',
-      'auth/invalid-credential': 'Утасны дугаар эсвэл PIN буруу байна.',
-      'auth/wrong-password': 'Утасны дугаар эсвэл PIN буруу байна.',
-      'auth/user-not-found': 'Утасны дугаар эсвэл PIN буруу байна.',
-      'auth/weak-password': 'PIN заавал 6 оронтой байна.',
-      'auth/network-request-failed': 'Интернэт холболтоо шалгана уу.',
-      'auth/operation-not-allowed': 'Firebase дээр Email/Password нэвтрэлтийг идэвхжүүлнэ үү.'
-    };
-    return map[err?.code] || err?.message || 'Алдаа гарлаа. Дахин оролдоно уу.';
-  }
-
   function applyMyProfile(uid, data) {
     cachedUser = data ? { uid, ...data } : null;
     if (cachedUser) {
@@ -80,18 +96,92 @@
     }, console.error);
   }
 
-  currentUser = function () { return cachedUser; };
-  usersDB = function () { return cachedUser ? [cachedUser] : []; };
-  saveUsers = function () {};
+  function profileKey(profile) {
+    if (profile?.profileMode === PROFILE_MANAGED) return `managed:${profile.managedProfileId}`;
+    return `member:${profile?.uid || ''}`;
+  }
+
+  function profileFromKey(key) {
+    return profiles.find(p => profileKey(p) === String(key));
+  }
+
+  function rebuildProfiles() {
+    for (let i = profiles.length - 1; i >= 0; i--) {
+      if (profiles[i].fromFirebase === true) profiles.splice(i, 1);
+    }
+    const myUid = auth.currentUser?.uid;
+    publicProfileRows.forEach(row => {
+      if (row.uid === myUid) return;
+      profiles.push({
+        id: `member_${row.uid}`,
+        uid: row.uid,
+        profileMode: PROFILE_MEMBER,
+        fromFirebase: true,
+        name: row.name || 'Гишүүн',
+        age: Number(row.age || 18),
+        gender: row.gender || '',
+        city: row.city || '',
+        job: row.job || 'Мэдээлээгүй',
+        goal: row.goal || '',
+        interests: Array.isArray(row.interests) ? row.interests : ['Шинэ гишүүн'],
+        status: row.status || 'Идэвхтэй',
+        bio: row.bio || '',
+        photos: [],
+        userPhoto: row.photo || ''
+      });
+    });
+    managedProfileRows.forEach(row => {
+      profiles.push({
+        id: `managed_${row.managedProfileId}`,
+        managedProfileId: row.managedProfileId,
+        profileMode: PROFILE_MANAGED,
+        fromFirebase: true,
+        name: row.name || 'ТАНИЛ хөтлөгч',
+        age: Number(row.age || 18),
+        gender: row.gender || '',
+        city: row.city || '',
+        job: row.job || 'ТАНИЛ багийн хөтлөгч',
+        goal: row.goal || 'Найз нөхөрлөл',
+        interests: Array.isArray(row.interests) ? row.interests : ['ТАНИЛ баг'],
+        status: row.status || 'Идэвхтэй',
+        bio: row.bio || '',
+        photos: [],
+        userPhoto: row.photo || '',
+        disclosure: row.disclosure || MANAGED_DISCLOSURE
+      });
+    });
+    if (!main.classList.contains('hidden')) performSearch();
+  }
+
+  function watchProfiles() {
+    if (unsubscribeProfiles) unsubscribeProfiles();
+    if (unsubscribeManagedProfiles) unsubscribeManagedProfiles();
+
+    unsubscribeProfiles = db.collection('publicProfiles').limit(300).onSnapshot(snap => {
+      publicProfileRows = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+      rebuildProfiles();
+    }, console.error);
+
+    unsubscribeManagedProfiles = db.collection('managedProfiles').where('active', '==', true).limit(100).onSnapshot(snap => {
+      managedProfileRows = snap.docs.map(doc => ({ managedProfileId: doc.id, ...doc.data() }));
+      rebuildProfiles();
+    }, console.error);
+  }
+
+  currentUser = () => cachedUser;
+  usersDB = () => cachedUser ? [cachedUser] : [];
+  saveUsers = () => {};
+  syncUserProfiles = () => {};
 
   registerUser = async function () {
-    const age = +myage.value;
+    const age = Number(myage.value);
     const pin = myPin.value.trim();
     const ph = cleanPhone(phone.value);
     if (!myname.value.trim() || !/^\d{8}$/.test(ph) || !/^\d{6}$/.test(pin) || age < 18 || age > 80 || !mygender.value || !mycity.value || !mygoal.value || !signupPhotoData || !agree.checked) {
       regerr.textContent = 'Бүх мэдээллээ бөглөж, 6 оронтой PIN болон профайл зургаа оруулна уу.';
       return;
     }
+
     regerr.textContent = 'Бүртгэл үүсгэж байна...';
     let credential;
     try {
@@ -109,8 +199,10 @@
         bio: mybio.value.trim() || 'Танилцаж, ярилцах хүсэлтэй.',
         photo: photoURL,
         membershipUntil: 0,
+        premium: false,
         status: 'Идэвхтэй',
-        createdAt: serverTime()
+        createdAt: serverTime(),
+        updatedAt: serverTime()
       };
       await db.collection('users').doc(uid).set(data);
       await db.collection('publicProfiles').doc(uid).set({
@@ -123,10 +215,11 @@
         bio: data.bio,
         photo: data.photo,
         status: data.status,
-        createdAt: serverTime()
+        createdAt: serverTime(),
+        updatedAt: serverTime()
       });
       await readMyProfile(uid);
-      await loadFirebaseProfiles();
+      watchProfiles();
       regerr.textContent = '';
       startApp();
     } catch (err) {
@@ -148,7 +241,8 @@
     try {
       const credential = await auth.signInWithEmailAndPassword(phoneEmail(ph), pin);
       await readMyProfile(credential.user.uid);
-      await loadFirebaseProfiles();
+      watchMyProfile(credential.user.uid);
+      watchProfiles();
       loginErr.textContent = '';
       startApp();
     } catch (err) {
@@ -157,9 +251,13 @@
   };
 
   logoutUser = async function () {
+    if (chatUnsubscribe) chatUnsubscribe();
+    if (chatsUnsubscribe) chatsUnsubscribe();
+    if (unsubscribeProfiles) unsubscribeProfiles();
+    if (unsubscribeManagedProfiles) unsubscribeManagedProfiles();
+    if (unsubscribeMyProfile) unsubscribeMyProfile();
     await auth.signOut();
     cachedUser = null;
-    if (unsubscribeMyProfile) { unsubscribeMyProfile(); unsubscribeMyProfile = null; }
     localStorage.removeItem('tanilSessionPhone');
     localStorage.removeItem('tanilUser');
     location.reload();
@@ -178,7 +276,7 @@
       try {
         await readMyProfile(user.uid);
         watchMyProfile(user.uid);
-        await loadFirebaseProfiles();
+        watchProfiles();
         startApp();
       } catch (err) {
         console.error(err);
@@ -187,155 +285,72 @@
     });
   };
 
-  async function loadFirebaseProfiles() {
-    if (unsubscribeProfiles) unsubscribeProfiles();
-    return new Promise((resolve, reject) => {
-      unsubscribeProfiles = db.collection('publicProfiles').orderBy('createdAt', 'desc').limit(300)
-        .onSnapshot(snap => {
-          for (let i = profiles.length - 1; i >= 0; i--) {
-            if (profiles[i].isRealUser) profiles.splice(i, 1);
-          }
-          snap.forEach(doc => {
-            const u = doc.data();
-            profiles.push({
-              id: `fb_${doc.id}`,
-              uid: doc.id,
-              name: u.name || 'Гишүүн', age: Number(u.age || 18), gender: u.gender || '',
-              city: u.city || '', job: u.job || 'Мэдээлээгүй', goal: u.goal || '',
-              interests: ['Шинэ гишүүн'], status: u.status || 'Идэвхтэй', bio: u.bio || '',
-              photos: [], userPhoto: u.photo || '', isRealUser: true
-            });
-          });
-          if (!main.classList.contains('hidden')) performSearch();
-          resolve();
-        }, reject);
-    });
-  }
-  syncUserProfiles = function () {};
-
   forgotPin = async function () {
     const ph = cleanPhone(loginPhone.value);
     if (!/^\d{8}$/.test(ph)) return alert('Бүртгэлтэй утасны дугаараа оруулна уу.');
     try {
       await db.collection('pinResetRequests').add({ phone: ph, status: 'pending', createdAt: serverTime() });
       alert('PIN сэргээх хүсэлт админд илгээгдлээ.');
-    } catch (err) { alert(firebaseError(err)); }
+    } catch (err) {
+      alert(firebaseError(err));
+    }
   };
 
   submitPayment = async function () {
-    const u = currentUser();
-    const plan = plans.find(x => x.id === selectedPlan);
-    if (!u || !plan) return alert('Багцаа сонгоно уу.');
+    const user = currentUser();
+    const plan = plans.find(item => item.id === selectedPlan);
+    if (!user || !plan) return alert('Багцаа сонгоно уу.');
     try {
       const existing = await db.collection('paymentRequests')
-        .where('uid', '==', u.uid).where('status', '==', 'pending').limit(1).get();
+        .where('uid', '==', user.uid)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get();
       if (existing.empty) {
         await db.collection('paymentRequests').add({
-          uid: u.uid, phone: u.phone, planId: plan.id, planType: plan.type,
-          duration: plan.duration, price: plan.price, status: 'pending', createdAt: serverTime()
+          uid: user.uid,
+          phone: user.phone,
+          planId: plan.id,
+          planType: plan.type,
+          duration: plan.duration,
+          price: plan.price,
+          status: 'pending',
+          createdAt: serverTime()
         });
       }
       payContent.innerHTML = '<h2>Төлбөр шалгагдаж байна</h2><span class="state pending">ХҮЛЭЭГДЭЖ БУЙ</span><div class="notice" style="margin-top:12px">Админ таны утасны дугаараар гүйлгээг шалгаж зөвшөөрсний дараа эрх нээгдэнэ.</div><button class="btn secondary full" onclick="closeModal(\'payModal\')">Хаах</button>';
-    } catch (err) { alert(firebaseError(err)); }
+    } catch (err) {
+      alert(firebaseError(err));
+    }
   };
 
   showRequests = async function () {
-    const u = currentUser();
+    const user = currentUser();
     genericModal.classList.add('show');
     genericContent.innerHTML = '<h2>Миний төлбөрийн хүсэлт</h2><div class="notice">Уншиж байна...</div>';
     try {
-      const snap = await db.collection('paymentRequests').where('uid', '==', u.uid).get();
-      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-      genericContent.innerHTML = `<h2>Миний төлбөрийн хүсэлт</h2>${rows.length ? rows.map(r => `<div class="adminItem"><b>${escSafe(r.phone)}</b><br><span class="small">${escSafe(r.planType)} · ${escSafe(r.duration)} · ${money(r.price)}</span><br><span class="state ${r.status}">${r.status==='pending'?'ХҮЛЭЭГДЭЖ БУЙ':r.status==='approved'?'ЭРХ ИДЭВХЖСЭН':'ТАТГАЛЗСАН'}</span></div>`).join('') : '<div class="notice">Одоогоор хүсэлт байхгүй.</div>'}<button class="btn secondary full" onclick="closeModal('genericModal')">Хаах</button>`;
-    } catch (err) { genericContent.innerHTML = `<div class="notice">${escSafe(firebaseError(err))}</div>`; }
+      const snap = await db.collection('paymentRequests').where('uid', '==', user.uid).get();
+      const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      genericContent.innerHTML = `<h2>Миний төлбөрийн хүсэлт</h2>${rows.length ? rows.map(row => `<div class="adminItem"><b>${safe(row.phone)}</b><br><span class="small">${safe(row.planType)} · ${safe(row.duration)} · ${money(row.price)}</span><br><span class="state ${safe(row.status)}">${row.status === 'pending' ? 'ХҮЛЭЭГДЭЖ БУЙ' : row.status === 'approved' ? 'ЭРХ ИДЭВХЖСЭН' : 'ТАТГАЛЗСАН'}</span></div>`).join('') : '<div class="notice">Одоогоор хүсэлт байхгүй.</div>'}<button class="btn secondary full" onclick="closeModal('genericModal')">Хаах</button>`;
+    } catch (err) {
+      genericContent.innerHTML = `<div class="notice">${safe(firebaseError(err))}</div>`;
+    }
   };
 
-  async function isAdmin(uid) {
-    const snap = await db.collection('admins').doc(uid).get();
-    return snap.exists && snap.data().active === true;
-  }
-
-  openAdmin = function () {
-    genericContent.innerHTML = '<h2>Админ нэвтрэх</h2><input id="adminPhone" class="field" inputmode="numeric" placeholder="Админ утас"><input id="adminPin" class="field" type="password" inputmode="numeric" placeholder="6 оронтой PIN"><button class="btn full" onclick="adminLogin()">Нэвтрэх</button>';
-    genericModal.classList.add('show');
-  };
-
-  adminLogin = async function () {
-    try {
-      const credential = await auth.signInWithEmailAndPassword(phoneEmail(cleanPhone(adminPhone.value)), adminPin.value.trim());
-      if (!(await isAdmin(credential.user.uid))) throw new Error('Энэ бүртгэл админ эрхгүй байна.');
-      await readMyProfile(credential.user.uid);
-      await renderAdmin();
-    } catch (err) { alert(firebaseError(err)); }
-  };
-
-  renderAdmin = async function () {
-    genericContent.innerHTML = '<h2>Төлбөрийн хүсэлтүүд</h2><div class="notice">Уншиж байна...</div>';
-    try {
-      if (!auth.currentUser || !(await isAdmin(auth.currentUser.uid))) throw new Error('Админ эрхгүй байна.');
-      const [paySnap, pinSnap] = await Promise.all([
-        db.collection('paymentRequests').orderBy('createdAt','desc').limit(200).get(),
-        db.collection('pinResetRequests').where('status','==','pending').limit(100).get()
-      ]);
-      const reqs = paySnap.docs.map(d => ({id:d.id,...d.data()}));
-      const pins = pinSnap.docs.map(d => ({id:d.id,...d.data()}));
-      genericContent.innerHTML = `<h2>Төлбөрийн хүсэлтүүд</h2><div class="notice">Админд хэрэглэгч зөвхөн утасны дугаараар харагдана.</div>${reqs.length ? reqs.map(r => `<div class="adminItem"><b>📱 ${escSafe(r.phone)}</b><br><span class="small">${escSafe(r.duration)} · ${money(r.price)}</span><br><span class="state ${r.status}">${r.status==='pending'?'ХҮЛЭЭГДЭЖ БУЙ':r.status==='approved'?'ЗӨВШӨӨРСӨН':'ТАТГАЛЗСАН'}</span>${r.status==='pending'?`<div style="display:flex;gap:8px"><button class="btn green full" onclick="setReqStatus('${r.id}','approved')">Зөвшөөрөх</button><button class="btn red full" onclick="setReqStatus('${r.id}','rejected')">Татгалзах</button></div>`:''}</div>`).join('') : '<div class="notice">Төлбөрийн хүсэлт алга.</div>'}<h3>PIN сэргээх хүсэлт</h3>${pins.length ? pins.map(x => `<div class="adminItem"><b>📱 ${escSafe(x.phone)}</b><br><span class="small">Firebase Authentication дээр тухайн хэрэглэгчийн PIN-ийг админ өөрчилнө.</span></div>`).join('') : '<div class="small">Хүсэлт алга.</div>'}`;
-    } catch (err) { genericContent.innerHTML = `<div class="notice">${escSafe(firebaseError(err))}</div>`; }
-  };
-
-  setReqStatus = async function (id, status) {
-    try {
-      if (!auth.currentUser || !(await isAdmin(auth.currentUser.uid))) throw new Error('Админ эрхгүй байна.');
-      const ref = db.collection('paymentRequests').doc(id);
-      await db.runTransaction(async tx => {
-        const snap = await tx.get(ref);
-        if (!snap.exists) throw new Error('Хүсэлт олдсонгүй.');
-        const r = snap.data();
-        tx.update(ref, { status, reviewedAt: serverTime(), reviewedBy: auth.currentUser.uid });
-        if (status === 'approved') {
-          const userRef = db.collection('users').doc(r.uid);
-          const userSnap = await tx.get(userRef);
-          const oldUntil = Number(userSnap.data()?.membershipUntil || 0);
-          const start = Math.max(Date.now(), oldUntil);
-          tx.update(userRef, { membershipUntil: start + durationDays(r.planId) * 86400000 });
-        }
-      });
-      await readMyProfile(auth.currentUser.uid);
-      await renderAdmin();
-    } catch (err) { alert(firebaseError(err)); }
-  };
-
-  // Original page initAuth() already ran before this file loaded. Re-run using Firebase.
-  initAuth();
-})();
-
-/* ===== TANIL Firebase нэмэлт боломжууд: Like + Chat ===== */
-(() => {
-  'use strict';
-  if (!window.firebase || !firebase.apps.length) return;
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  let chatUnsubscribe = null;
-  let activeChatTarget = null;
-
-  const safe = (v) => typeof esc === 'function' ? esc(String(v ?? '')) : String(v ?? '')
-    .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const profileKey = p => String(p?.uid || p?.id || '');
-  const chatIdFor = (a,b) => [a,b].sort().join('_');
-
-  window.openProfileByKey = function(key) {
-    const p = profiles.find(x => profileKey(x) === String(key));
-    if (!p) return alert('Профайл олдсонгүй.');
-    selectedProfile = p;
+  window.openProfileByKey = function (key) {
+    const profile = profileFromKey(key);
+    if (!profile) return alert('Профайл олдсонгүй.');
+    selectedProfile = profile;
     slideIndex = 0;
     renderProfile();
     profileModal.classList.add('show');
   };
 
-  // Firebase профайлын string id-г зөв нээдэг карт.
-  cardHtml = function(p) {
-    const key = safe(profileKey(p));
-    return `<article class="card"><div class="photo"><img src="${profileImg(p)}"><span class="statusDot">${p.status==='Идэвхтэй'?'● ':''}${safe(p.status)}</span></div><div class="cardbody"><div class="name">${safe((p.name||'Г')[0])}••••, ${Number(p.age||18)}</div><div class="meta">${safe(p.gender)} · ${safe(p.city)}<br>${safe(p.job)}</div><span class="goal">${safe(p.goal)}</span><div class="tags">${(p.interests||[]).slice(0,2).map(x=>`<span class="tag">${safe(x)}</span>`).join('')}</div><button class="open" onclick="openProfileByKey('${key}')">Профайл үзэх</button></div></article>`;
+  cardHtml = function (profile) {
+    const key = safe(profileKey(profile));
+    const managed = profile.profileMode === PROFILE_MANAGED;
+    return `<article class="card"><div class="photo"><img src="${safe(profileImg(profile))}"><span class="statusDot">${profile.status === 'Идэвхтэй' ? '● ' : ''}${safe(profile.status)}</span></div><div class="cardbody"><div class="name">${safe((profile.name || 'Г')[0])}••••, ${Number(profile.age || 18)}</div><div class="meta">${safe(profile.gender)} · ${safe(profile.city)}<br>${safe(profile.job)}</div>${managed ? '<span class="goal">ТАНИЛ багийн хөтлөгч</span>' : `<span class="goal">${safe(profile.goal)}</span>`}<div class="tags">${(profile.interests || []).slice(0, 2).map(item => `<span class="tag">${safe(item)}</span>`).join('')}</div><button class="open" onclick="openProfileByKey('${key}')">Профайл үзэх</button></div></article>`;
   };
 
   async function likeState(targetUid) {
@@ -345,7 +360,7 @@
     return snap.exists;
   }
 
-  window.toggleLike = async function(targetUid) {
+  window.toggleLike = async function (targetUid) {
     const me = auth.currentUser;
     if (!me) return alert('Эхлээд нэвтэрнэ үү.');
     if (!targetUid || targetUid === me.uid) return alert('Өөрийн профайлд лайк дарах боломжгүй.');
@@ -353,70 +368,262 @@
     try {
       const snap = await ref.get();
       if (snap.exists) await ref.delete();
-      else await ref.set({ fromUid: me.uid, toUid: targetUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      else await ref.set({ fromUid: me.uid, toUid: targetUid, createdAt: serverTime() });
       renderProfile();
-    } catch (e) { alert(e.message || 'Лайк хадгалахад алдаа гарлаа.'); }
+    } catch (err) {
+      alert(firebaseError(err));
+    }
   };
 
-  const baseRenderProfile = renderProfile;
-  renderProfile = async function() {
-    const p = selectedProfile;
-    if (!p) return;
-    const targetUid = p.uid || '';
-    const imgs = p.userPhoto ? [p.userPhoto] : (p.photos||[]).map(i=>images[i]);
-    const img = imgs[slideIndex] || profileImg(p);
+  renderProfile = async function () {
+    const profile = selectedProfile;
+    if (!profile) return;
+    const managed = profile.profileMode === PROFILE_MANAGED;
+    const targetUid = managed ? '' : profile.uid;
+    const imgs = profile.userPhoto ? [profile.userPhoto] : (profile.photos || []).map(index => images[index]);
+    const img = imgs[slideIndex] || profileImg(profile);
     const full = hasMembership();
     let liked = false;
-    try { liked = await likeState(targetUid); } catch (_) {}
-    profileContent.innerHTML = `<div class="slider ${full?'':'locked'}"><img src="${img}">${imgs.length>1?`<button class="slideNav prev" onclick="changeSlide(-1)">‹</button><button class="slideNav next" onclick="changeSlide(1)">›</button>`:''}</div><div class="dots">${imgs.map((_,i)=>`<span class="dot ${i===slideIndex?'on':''}"></span>`).join('')}</div><h2 style="margin:5px 0">${full?safe(p.name):(p.name||'Г')[0]+'••••'}, ${Number(p.age||18)}</h2><div class="meta">${safe(p.gender)} · ${safe(p.city)} · ${safe(p.job)} · ${safe(p.status)}</div><p>${safe(p.bio)}</p><span class="goal">${safe(p.goal)}</span><div class="tags">${(p.interests||[]).map(x=>`<span class="tag">${safe(x)}</span>`).join('')}</div>${targetUid?`<button class="btn secondary full" onclick="toggleLike('${safe(targetUid)}')">${liked?'♥ Таалагдсан':'♡ Таалагдлаа'}</button>`:''}${full?`<button class="btn green full" onclick="openDirectChat()">Шууд чатлах</button>`:`<div class="notice" style="margin-top:14px">Бүтэн мэдээлэл болон чатлах эрх авахын тулд төлбөрөө шилжүүлж, админы зөвшөөрөл хүлээнэ.</div><button class="btn full" onclick="openPay()">Эрх авах</button>`}<button class="btn secondary full" onclick="closeModal('profileModal')">Хаах</button>`;
+    if (targetUid) {
+      try { liked = await likeState(targetUid); } catch (_) {}
+    }
+    profileContent.innerHTML = `<div class="slider ${full ? '' : 'locked'}"><img src="${safe(img)}">${imgs.length > 1 ? `<button class="slideNav prev" onclick="changeSlide(-1)">‹</button><button class="slideNav next" onclick="changeSlide(1)">›</button>` : ''}</div><div class="dots">${imgs.map((_, index) => `<span class="dot ${index === slideIndex ? 'on' : ''}"></span>`).join('')}</div><h2 style="margin:5px 0">${full ? safe(profile.name) : safe((profile.name || 'Г')[0]) + '••••'}, ${Number(profile.age || 18)}</h2><div class="meta">${safe(profile.gender)} · ${safe(profile.city)} · ${safe(profile.job)} · ${safe(profile.status)}</div><p>${safe(profile.bio)}</p><span class="goal">${safe(profile.goal)}</span><div class="tags">${(profile.interests || []).map(item => `<span class="tag">${safe(item)}</span>`).join('')}</div>${managed ? `<div class="notice" style="margin-top:14px"><b>ТАНИЛ багийн удирдлагатай профайл</b><br>${safe(profile.disclosure || MANAGED_DISCLOSURE)}</div>` : ''}${targetUid ? `<button class="btn secondary full" onclick="toggleLike('${safe(targetUid)}')">${liked ? '♥ Таалагдсан' : '♡ Таалагдлаа'}</button>` : ''}${full ? '<button class="btn green full" onclick="openDirectChat()">Шууд чатлах</button>' : '<div class="notice" style="margin-top:14px">Бүтэн мэдээлэл болон чатлах эрх авахын тулд төлбөрөө шилжүүлж, админы зөвшөөрөл хүлээнэ.</div><button class="btn full" onclick="openPay()">Эрх авах</button>'}<button class="btn secondary full" onclick="closeModal('profileModal')">Хаах</button>`;
   };
 
-  window.openDirectChat = async function() {
+  changeSlide = function (delta) {
+    const profile = selectedProfile;
+    const count = profile?.userPhoto ? 1 : Math.max(1, profile?.photos?.length || 1);
+    slideIndex = (slideIndex + delta + count) % count;
+    renderProfile();
+  };
+
+  function memberChatId(a, b) {
+    return `member_${[a, b].sort().join('_')}`;
+  }
+
+  function managedChatId(userUid, managedProfileId) {
+    return `managed_${managedProfileId}_${userUid}`;
+  }
+
+  function chatDefinition(meUid, profile) {
+    if (profile.profileMode === PROFILE_MANAGED) {
+      return {
+        id: managedChatId(meUid, profile.managedProfileId),
+        data: {
+          mode: 'managed',
+          memberUids: [meUid],
+          managedProfileId: profile.managedProfileId,
+          disclosureVersion: '2026-07-20'
+        }
+      };
+    }
+    return {
+      id: memberChatId(meUid, profile.uid),
+      data: {
+        mode: 'member',
+        memberUids: [meUid, profile.uid].sort()
+      }
+    };
+  }
+
+  async function resolveProfileForChat(chat) {
+    if (chat.mode === 'managed') {
+      let profile = profiles.find(item => item.profileMode === PROFILE_MANAGED && item.managedProfileId === chat.managedProfileId);
+      if (profile) return profile;
+      const snap = await db.collection('managedProfiles').doc(chat.managedProfileId).get();
+      if (!snap.exists) return null;
+      const row = snap.data();
+      return {
+        id: `managed_${snap.id}`,
+        managedProfileId: snap.id,
+        profileMode: PROFILE_MANAGED,
+        name: row.name || 'ТАНИЛ хөтлөгч',
+        age: Number(row.age || 18),
+        gender: row.gender || '',
+        city: row.city || '',
+        job: row.job || 'ТАНИЛ багийн хөтлөгч',
+        goal: row.goal || '',
+        bio: row.bio || '',
+        status: row.status || 'Идэвхтэй',
+        interests: row.interests || [],
+        userPhoto: row.photo || '',
+        photos: [],
+        disclosure: row.disclosure || MANAGED_DISCLOSURE
+      };
+    }
+    const otherUid = (chat.memberUids || []).find(uid => uid !== auth.currentUser?.uid);
+    if (!otherUid) return null;
+    let profile = profiles.find(item => item.profileMode === PROFILE_MEMBER && item.uid === otherUid);
+    if (profile) return profile;
+    const snap = await db.collection('publicProfiles').doc(otherUid).get();
+    if (!snap.exists) return null;
+    const row = snap.data();
+    return {
+      id: `member_${otherUid}`,
+      uid: otherUid,
+      profileMode: PROFILE_MEMBER,
+      name: row.name || 'Гишүүн',
+      age: Number(row.age || 18),
+      gender: row.gender || '',
+      city: row.city || '',
+      job: row.job || '',
+      goal: row.goal || '',
+      bio: row.bio || '',
+      status: row.status || 'Идэвхтэй',
+      interests: row.interests || [],
+      userPhoto: row.photo || '',
+      photos: []
+    };
+  }
+
+  async function openChat(chatId, profile, createData = null) {
     const me = auth.currentUser;
-    const p = selectedProfile;
-    if (!me || !p?.uid) return alert('Чат нээх боломжгүй байна.');
+    if (!me || !profile) return alert('Чат нээх боломжгүй байна.');
     if (!hasMembership()) return openPay();
-    if (p.uid === me.uid) return alert('Өөртэйгөө чатлах боломжгүй.');
+
     closeModal('profileModal');
     genericModal.classList.add('show');
-    activeChatTarget = p;
-    const chatId = chatIdFor(me.uid, p.uid);
+    activeChatProfile = profile;
+    activeChat = { id: chatId, mode: profile.profileMode === PROFILE_MANAGED ? 'managed' : 'member' };
     const chatRef = db.collection('chats').doc(chatId);
-    try {
-      await chatRef.set({ members:[me.uid,p.uid].sort(), updatedAt:firebase.firestore.FieldValue.serverTimestamp() }, {merge:true});
-    } catch (_) {}
-    genericContent.innerHTML = `<h2>${safe(p.name)}, ${Number(p.age||18)}</h2><div class="meta">${safe(p.gender)} · ${safe(p.city)} · ${safe(p.job)}</div><div id="chatbox" class="chat"><div class="small">Мессеж уншиж байна...</div></div><div style="display:flex;gap:8px;margin-top:10px"><input id="chatInput" class="field" maxlength="500" placeholder="Мессеж бичих..." onkeydown="if(event.key==='Enter')sendChatMessage()"><button class="btn" onclick="sendChatMessage()">Илгээх</button></div><button class="btn secondary full" onclick="closeTanilChat()">Хаах</button>`;
+
+    if (createData) {
+      try {
+        const existing = await chatRef.get();
+        if (!existing.exists) {
+          await chatRef.set({
+            ...createData,
+            updatedAt: serverTime(),
+            lastMessage: '',
+            lastSenderType: '',
+            adminUnread: false,
+            userUnread: false
+          });
+        }
+      } catch (err) {
+        return alert(firebaseError(err));
+      }
+    }
+
+    const managedNotice = profile.profileMode === PROFILE_MANAGED
+      ? `<div class="notice" style="margin:10px 0"><b>ТАНИЛ багийн удирдлагатай профайл</b><br>${safe(profile.disclosure || MANAGED_DISCLOSURE)}</div>`
+      : '';
+    genericContent.innerHTML = `<h2>${safe(profile.name)}, ${Number(profile.age || 18)}</h2><div class="meta">${safe(profile.gender)} · ${safe(profile.city)} · ${safe(profile.job)}</div>${managedNotice}<div id="chatbox" class="chat"><div class="small">Мессеж уншиж байна...</div></div><div style="display:flex;gap:8px;margin-top:10px"><input id="chatInput" class="field" maxlength="500" placeholder="Мессеж бичих..." onkeydown="if(event.key==='Enter')sendChatMessage()"><button class="btn" onclick="sendChatMessage()">Илгээх</button></div><button class="btn secondary full" onclick="closeTanilChat()">Хаах</button>`;
+
     if (chatUnsubscribe) chatUnsubscribe();
-    chatUnsubscribe = chatRef.collection('messages').orderBy('createdAt','asc').limit(200).onSnapshot(snap => {
+    chatUnsubscribe = chatRef.collection('messages').orderBy('createdAt', 'asc').limit(200).onSnapshot(snap => {
       const box = document.getElementById('chatbox');
       if (!box) return;
-      box.innerHTML = snap.empty ? '<div class="small">Одоогоор мессеж алга.</div>' : snap.docs.map(d => {
-        const m = d.data();
-        const mine = m.senderUid === me.uid;
-        return `<div class="bubble" style="margin-left:${mine?'18%':'0'};margin-right:${mine?'0':'18%'};opacity:${mine?'1':'.9'}"><b>${mine?'Та':safe(p.name)}</b><br>${safe(m.text)}</div>`;
+      box.innerHTML = snap.empty ? '<div class="small">Одоогоор мессеж алга.</div>' : snap.docs.map(doc => {
+        const message = doc.data();
+        const mine = message.senderType === 'user' && message.senderUid === me.uid;
+        const senderName = mine ? 'Та' : profile.name;
+        return `<div class="bubble ${mine ? 'mine' : ''}" style="margin-left:${mine ? '18%' : '0'};margin-right:${mine ? '0' : '18%'}"><b>${safe(senderName)}</b><br>${safe(message.text)}</div>`;
       }).join('');
       box.scrollTop = box.scrollHeight;
-    }, e => { const box=document.getElementById('chatbox'); if(box) box.innerHTML=`<div class="notice">${safe(e.message)}</div>`; });
+    }, err => {
+      const box = document.getElementById('chatbox');
+      if (box) box.innerHTML = `<div class="notice">${safe(firebaseError(err))}</div>`;
+    });
+
+    try { await chatRef.update({ userUnread: false }); } catch (_) {}
+  }
+
+  window.openDirectChat = async function () {
+    const me = auth.currentUser;
+    const profile = selectedProfile;
+    if (!me || !profile) return alert('Чат нээх боломжгүй байна.');
+    if (profile.profileMode === PROFILE_MEMBER && profile.uid === me.uid) return alert('Өөртэйгөө чатлах боломжгүй.');
+    const definition = chatDefinition(me.uid, profile);
+    await openChat(definition.id, profile, definition.data);
   };
 
-  window.sendChatMessage = async function() {
+  window.sendChatMessage = async function () {
     const me = auth.currentUser;
     const input = document.getElementById('chatInput');
     const text = String(input?.value || '').trim();
-    if (!me || !activeChatTarget?.uid || !text) return;
+    if (!me || !activeChat?.id || !text) return;
     if (!hasMembership()) return alert('Чатлах эрх идэвхгүй байна.');
-    const chatId = chatIdFor(me.uid, activeChatTarget.uid);
     input.value = '';
     try {
-      const ref = db.collection('chats').doc(chatId);
-      await ref.set({ members:[me.uid,activeChatTarget.uid].sort(), updatedAt:firebase.firestore.FieldValue.serverTimestamp(), lastMessage:text.slice(0,120) }, {merge:true});
-      await ref.collection('messages').add({ senderUid:me.uid, text:text.slice(0,500), createdAt:firebase.firestore.FieldValue.serverTimestamp() });
-    } catch (e) { alert(e.message || 'Мессеж илгээхэд алдаа гарлаа.'); }
+      const chatRef = db.collection('chats').doc(activeChat.id);
+      await chatRef.collection('messages').add({
+        senderType: 'user',
+        senderUid: me.uid,
+        text: text.slice(0, 500),
+        createdAt: serverTime()
+      });
+      await chatRef.update({
+        updatedAt: serverTime(),
+        lastMessage: text.slice(0, 120),
+        lastSenderType: 'user',
+        adminUnread: activeChat.mode === 'managed',
+        userUnread: false
+      });
+    } catch (err) {
+      input.value = text;
+      alert(firebaseError(err));
+    }
   };
 
-  window.closeTanilChat = function() {
-    if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
-    activeChatTarget = null;
+  window.closeTanilChat = function () {
+    if (chatUnsubscribe) {
+      chatUnsubscribe();
+      chatUnsubscribe = null;
+    }
+    activeChat = null;
+    activeChatProfile = null;
     closeModal('genericModal');
   };
+
+  window.showMyChats = function () {
+    const me = auth.currentUser;
+    if (!me) return alert('Эхлээд нэвтэрнэ үү.');
+    genericModal.classList.add('show');
+    genericContent.innerHTML = '<h2>Миний чат</h2><div class="notice">Уншиж байна...</div>';
+    if (chatsUnsubscribe) chatsUnsubscribe();
+    chatsUnsubscribe = db.collection('chats').where('memberUids', 'array-contains', me.uid).limit(100).onSnapshot(async snap => {
+      const rows = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+      const resolved = await Promise.all(rows.map(async chat => ({ chat, profile: await resolveProfileForChat(chat) })));
+      genericContent.innerHTML = `<h2>Миний чат</h2>${resolved.length ? resolved.map(({ chat, profile }) => {
+        if (!profile) return '';
+        const managed = chat.mode === 'managed';
+        return `<div class="adminItem" onclick="openChatById('${safe(chat.id)}')" style="cursor:pointer"><b>${safe(profile.name)}</b>${managed ? '<br><span class="small">ТАНИЛ багийн удирдлагатай профайл</span>' : ''}<br><span class="small">${safe(chat.lastMessage || 'Одоогоор мессеж алга.')}</span>${chat.userUnread ? '<br><span class="state approved">ШИНЭ МЕССЕЖ</span>' : ''}</div>`;
+      }).join('') : '<div class="notice">Одоогоор чат байхгүй.</div>'}<button class="btn secondary full" onclick="closeMyChats()">Хаах</button>`;
+    }, err => {
+      genericContent.innerHTML = `<div class="notice">${safe(firebaseError(err))}</div>`;
+    });
+  };
+
+  window.openChatById = async function (chatId) {
+    try {
+      const snap = await db.collection('chats').doc(chatId).get();
+      if (!snap.exists) return alert('Чат олдсонгүй.');
+      const chat = { id: snap.id, ...snap.data() };
+      const profile = await resolveProfileForChat(chat);
+      if (!profile) return alert('Профайл олдсонгүй.');
+      if (chatsUnsubscribe) {
+        chatsUnsubscribe();
+        chatsUnsubscribe = null;
+      }
+      await openChat(chat.id, profile, null);
+    } catch (err) {
+      alert(firebaseError(err));
+    }
+  };
+
+  window.closeMyChats = function () {
+    if (chatsUnsubscribe) {
+      chatsUnsubscribe();
+      chatsUnsubscribe = null;
+    }
+    closeModal('genericModal');
+  };
+
+  openAdmin = function () {
+    location.href = 'admin.html';
+  };
+
+  initAuth();
 })();
