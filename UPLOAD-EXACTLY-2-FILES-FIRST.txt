@@ -1,0 +1,13 @@
+ТАНИЛ v6.2 — ХУУЧИН JAVASCRIPT CACHE-ИЙГ АЛБАДАН СОЛИХ
+
+ЭХЛЭЭД GitHub repository-ийн үндсэн хэсэгт дараах 2 файлыг upload/replace хийнэ:
+1. index.html
+2. firebase-bridge-v6.js
+
+Commit changes дараад 2–3 минут хүлээнэ. Сайтын баруун доод хэсэгт жижиг “v6.2” харагдах ёстой.
+Хэрэв v6.2 харагдахгүй бол GitHub Pages хуучин index.html-ээ ажиллуулж байна.
+
+ДАРАА НЬ Firebase Console → Firestore Database → Rules хэсэгт
+FIRESTORE-RULES-V6-PASTE.txt доторх кодыг бүхэлд нь тавиад Publish дарна.
+
+Анхаарах: firestore.rules файлыг GitHub-д upload хийх нь Firebase Rules-ийг өөрөө Publish хийхгүй.

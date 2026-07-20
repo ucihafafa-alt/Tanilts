@@ -11,12 +11,28 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
     }
 
-    function chat(chatId) {
+    function hasNewMembers(data) {
+      return ('memberUids' in data)
+        && data.memberUids is list
+        && request.auth.uid in data.memberUids;
+    }
+
+    function hasLegacyMembers(data) {
+      return ('members' in data)
+        && data.members is list
+        && request.auth.uid in data.members;
+    }
+
+    function isChatMemberData(data) {
+      return signedIn() && (hasNewMembers(data) || hasLegacyMembers(data));
+    }
+
+    function parentChat(chatId) {
       return get(/databases/$(database)/documents/chats/$(chatId)).data;
     }
 
-    function isChatMember(chatId) {
-      return signedIn() && request.auth.uid in chat(chatId).memberUids;
+    function isParentChatMember(chatId) {
+      return isChatMemberData(parentChat(chatId));
     }
 
     function validManagedProfile(profileId) {
@@ -25,39 +41,39 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/managedProfiles/$(profileId)).data.active == true;
     }
 
-    function validMemberChatCreate() {
+    function validNewMemberChat() {
       return request.resource.data.mode == 'member'
+        && ('memberUids' in request.resource.data)
         && request.resource.data.memberUids is list
         && request.resource.data.memberUids.size() == 2
         && request.resource.data.memberUids[0] != request.resource.data.memberUids[1]
         && request.auth.uid in request.resource.data.memberUids
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt is timestamp;
     }
 
-    function validManagedChatCreate() {
+    function validLegacyMemberChat() {
+      return ('members' in request.resource.data)
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] != request.resource.data.members[1]
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validManagedChat() {
       return request.resource.data.mode == 'managed'
+        && ('memberUids' in request.resource.data)
         && request.resource.data.memberUids is list
         && request.resource.data.memberUids.size() == 1
         && request.resource.data.memberUids[0] == request.auth.uid
         && validManagedProfile(request.resource.data.managedProfileId)
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt is timestamp;
     }
 
-    function chatIdentityUnchanged() {
-      return request.resource.data.mode == resource.data.mode
-        && request.resource.data.memberUids == resource.data.memberUids
-        && (
-          (
-            resource.data.mode == 'member'
-            && !('managedProfileId' in resource.data)
-            && !('managedProfileId' in request.resource.data)
-          )
-          ||
-          (
-            resource.data.mode == 'managed'
-            && request.resource.data.managedProfileId == resource.data.managedProfileId
-          )
-        );
+    function adminCanReadManaged(data) {
+      return isAdmin()
+        && ('mode' in data)
+        && data.mode == 'managed';
     }
 
     function validPlan(planId, price) {
@@ -101,7 +117,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ТАНИЛ багийн удирдлагатай, хэрэглэгчид ил тод тэмдэглэгддэг профайлууд.
     match /managedProfiles/{profileId} {
       allow read: if signedIn() && (resource.data.active == true || isAdmin());
       allow create, update: if isAdmin();
@@ -113,54 +128,103 @@ service cloud.firestore {
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.toUid is string
         && likeId == request.auth.uid + '_' + request.resource.data.toUid
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt is timestamp;
 
-      // Байхгүй like document-ийг шалгах get() хүсэлт permission-denied болохоос хамгаална.
-      allow get: if signedIn() && likeId.matches(request.auth.uid + '_.*');
+      // Missing like documents may be checked before creation.
+      allow get: if signedIn()
+        && !exists(/databases/$(database)/documents/likes/$(likeId));
+      allow get: if signedIn()
+        && ('fromUid' in resource.data)
+        && resource.data.fromUid == request.auth.uid;
       allow list: if false;
       allow delete: if signedIn()
-        && likeId.matches(request.auth.uid + '_.*')
+        && ('fromUid' in resource.data)
         && resource.data.fromUid == request.auth.uid;
       allow update: if false;
     }
 
     match /chats/{chatId} {
-      allow create: if signedIn() && (validMemberChatCreate() || validManagedChatCreate());
-      allow read: if (signedIn() && request.auth.uid in resource.data.memberUids)
-        || (isAdmin() && resource.data.mode == 'managed');
+      function hasNewMembers(data) {
+        return data.keys().hasAny(['memberUids'])
+          && data.memberUids is list
+          && request.auth.uid in data.memberUids;
+      }
 
-      allow update: if (isAdmin() && resource.data.mode == 'managed') || (
-        signedIn()
-        && request.auth.uid in resource.data.memberUids
-        && chatIdentityUnchanged()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'updatedAt', 'lastMessage', 'lastSenderType', 'adminUnread', 'userUnread'
-        ])
-      );
+      function hasOldMembers(data) {
+        return data.keys().hasAny(['members'])
+          && data.members is list
+          && request.auth.uid in data.members;
+      }
+
+      function isMember(data) {
+        return signedIn() && (hasNewMembers(data) || hasOldMembers(data));
+      }
+
+      function isManaged(data) {
+        return data.keys().hasAny(['mode']) && data.mode == 'managed';
+      }
+
+      function sameParticipants() {
+        return (
+          resource.data.keys().hasAny(['memberUids'])
+          && request.resource.data.keys().hasAny(['memberUids'])
+          && request.resource.data.memberUids == resource.data.memberUids
+        ) || (
+          resource.data.keys().hasAny(['members'])
+          && request.resource.data.keys().hasAny(['members'])
+          && request.resource.data.members == resource.data.members
+        );
+      }
+
+      // V6.2: шинэ чатанд зөвхөн нэвтэрсэн хэрэглэгч өөрөө оролцогч байх ёстой.
+      // createdAt/updatedAt-ийн төрөл дээр хатуу шалгалт хийхгүй тул serverTimestamp
+      // болон өмнөх cache-тай хувилбаруудын аль аль нь ажиллана.
+      allow create: if signedIn()
+        && isMember(request.resource.data)
+        && (
+          (request.resource.data.keys().hasAny(['memberUids'])
+            && request.resource.data.memberUids.size() >= 1
+            && request.resource.data.memberUids.size() <= 2)
+          ||
+          (request.resource.data.keys().hasAny(['members'])
+            && request.resource.data.members.size() == 2)
+        );
+
+      allow get, list: if isMember(resource.data)
+        || (isAdmin() && isManaged(resource.data));
+
+      // Оролцогчдын жагсаалтыг сольж болохгүй; зөвхөн чатны metadata шинэчилнэ.
+      allow update: if (
+          isMember(resource.data)
+          && isMember(request.resource.data)
+          && sameParticipants()
+        ) || (isAdmin() && isManaged(resource.data));
 
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if isChatMember(chatId) || (isAdmin() && chat(chatId).mode == 'managed');
+        function parentData() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
 
-        allow create: if request.resource.data.text is string
+        allow read: if isMember(parentData())
+          || (isAdmin() && isManaged(parentData()));
+
+        allow create: if signedIn()
+          && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 500
-          && request.resource.data.createdAt == request.time
           && (
             (
-              isChatMember(chatId)
-              && request.resource.data.senderType == 'user'
+              isMember(parentData())
               && request.resource.data.senderUid == request.auth.uid
-              && !('senderProfileId' in request.resource.data)
             )
             ||
             (
               isAdmin()
-              && chat(chatId).mode == 'managed'
+              && isManaged(parentData())
               && request.resource.data.senderType == 'managed_profile'
-              && request.resource.data.senderProfileId == chat(chatId).managedProfileId
-              && !('senderUid' in request.resource.data)
+              && request.resource.data.senderProfileId == parentData().managedProfileId
             )
           );
 
@@ -175,7 +239,7 @@ service cloud.firestore {
         && request.resource.data.phone.size() == 8
         && request.resource.data.status == 'pending'
         && validPlan(request.resource.data.planId, request.resource.data.price)
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt is timestamp;
       allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       allow update: if isAdmin();
       allow delete: if false;
@@ -186,7 +250,7 @@ service cloud.firestore {
         && request.resource.data.phone is string
         && request.resource.data.phone.size() == 8
         && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt is timestamp;
       allow read, update: if isAdmin();
       allow delete: if false;
     }

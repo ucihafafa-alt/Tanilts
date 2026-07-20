@@ -44,7 +44,7 @@
       'auth/weak-password': 'PIN заавал 6 оронтой байна.',
       'auth/network-request-failed': 'Интернэт холболтоо шалгана уу.',
       'auth/operation-not-allowed': 'Firebase Authentication дээр Email/Password нэвтрэлтийг идэвхжүүлнэ үү.',
-      'permission-denied': 'Энэ үйлдлийг хийх эрхгүй байна.'
+      'permission-denied': 'Firestore Rules шинэчлэгдээгүй эсвэл Publish хийгдээгүй байна. Firebase Console → Firestore Database → Rules хэсэгт v5 дүрмийг тавьж Publish дарна уу.'
     };
     return map[err?.code] || err?.message || 'Алдаа гарлаа. Дахин оролдоно уу.';
   }
@@ -489,6 +489,7 @@
 
     if (createData) {
       try {
+        // v5: шинэ болон хуучин cache-тай хувилбарт нийцэх чат үүсгэлт.
         // Шинэ чат дээр урьдчилж get() хийхэд Firestore-ийн read rule
         // байхгүй document-ийг уншихыг хориглож permission-denied өгдөг.
         // Merge set нь document байхгүй бол create, байвал зөвхөн updatedAt-ийг
