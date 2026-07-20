@@ -1,0 +1,5 @@
+1. ZIP-ийг задлана.
+2. Бүх файлыг GitHub Tanilts repository-ийн үндсэн хэсэгт upload/replace хийнэ.
+3. FIRESTORE-RULES-PASTE.txt доторх кодыг Firebase Console → Firestore → Rules дээр бүтнээр нь тавьж Publish хийнэ.
+4. Админ: https://ucihafafa-alt.github.io/Tanilts/admin.html
+5. Хэрэглэгч: https://ucihafafa-alt.github.io/Tanilts/

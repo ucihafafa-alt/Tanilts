@@ -1,266 +1,56 @@
 <!doctype html>
 <html lang="mn">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ТАНИЛ — Админ</title>
-<style>
-:root{color-scheme:dark;--bg:#0e0912;--card:#1d1423;--line:#493752;--text:#fff;--muted:#c9b9cf;--pink:#ff4f8b;--violet:#8f63ff;--green:#39d99b;--red:#ff6b7a;--amber:#ffc857}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(circle at top,#341b3c 0,#0e0912 46%);color:var(--text);min-height:100vh}.wrap{width:min(100%,920px);margin:auto;padding:22px 15px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.brand{font-size:24px;font-weight:950}.card{background:rgba(29,20,35,.96);border:1px solid var(--line);border-radius:22px;padding:17px;margin-bottom:14px;box-shadow:0 18px 45px rgba(0,0,0,.28)}h1,h2,h3{margin:0 0 12px}.field{width:100%;border:1px solid var(--line);background:#120c17;color:#fff;border-radius:14px;padding:13px;font-size:15px;margin:6px 0}.field.textarea{min-height:92px;resize:vertical}.btn{border:0;border-radius:14px;padding:12px 14px;font-weight:850;color:white;background:linear-gradient(135deg,var(--pink),var(--violet));cursor:pointer}.btn.full{width:100%;margin-top:8px}.btn.secondary{background:#302039}.btn.green{background:#176947}.btn.red{background:#722737}.btn.amber{background:#70531c}.row{display:flex;gap:8px;flex-wrap:wrap}.row .btn{flex:1;min-width:120px}.small{font-size:13px;color:var(--muted);line-height:1.5}.notice{padding:12px;border-radius:14px;background:#2a2030;border:1px solid var(--line);color:var(--muted)}.item{padding:13px;border-radius:16px;background:#160f1b;border:1px solid #3d2b47;margin-top:10px}.state{display:inline-block;margin:8px 0;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900}.pending{background:#49381e;color:#ffd685}.approved{background:#173d30;color:#70ebbb}.rejected{background:#4a2028;color:#ff9cab}.hidden{display:none!important}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.stat{background:#130d18;border:1px solid #3a2943;border-radius:15px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.back{color:#fff;text-decoration:none;font-weight:800}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.chat{height:380px;overflow:auto;background:#100b14;border:1px solid var(--line);border-radius:16px;padding:12px}.bubble{max-width:82%;padding:10px 12px;border-radius:15px;background:#33233c;margin:7px 0;line-height:1.45}.bubble.mine{margin-left:auto;background:#5d2c55}.profileRow{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center}.avatar{width:72px;height:72px;object-fit:cover;border-radius:16px;background:#26182d}.sectionTitle{display:flex;justify-content:space-between;align-items:center;gap:10px}.unread{border-color:var(--pink);box-shadow:0 0 0 1px rgba(255,79,139,.25)}
-@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.top{align-items:flex-start}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#130918">
+  <title>ТАНИЛ — Админ зуучлал</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0d0811;--card:#1e1424;--line:#4b3654;--text:#fff;--muted:#c9bacf;--pink:#ff4f8b;--violet:#8f63ff;--green:#31d39a;--red:#ff6b7a;--amber:#ffc857}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:radial-gradient(circle at top,#391d42,#0d0811 45%);color:var(--text);min-height:100vh}button,input,select,textarea{font:inherit}.wrap{width:min(100%,1100px);margin:auto;padding:18px 14px 70px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:15px}.brand{font-size:23px;font-weight:950}.card{background:rgba(30,20,36,.97);border:1px solid var(--line);border-radius:21px;padding:16px;margin-bottom:13px;box-shadow:0 16px 45px rgba(0,0,0,.3)}h1,h2,h3{margin:0 0 10px}.small{font-size:13px;color:var(--muted);line-height:1.5}.field{width:100%;border:1px solid var(--line);background:#120c17;color:#fff;border-radius:13px;padding:12px;margin:6px 0}.btn{border:0;border-radius:13px;padding:12px 14px;font-weight:900;color:#fff;background:linear-gradient(135deg,var(--pink),var(--violet));cursor:pointer}.btn.full{width:100%;margin-top:7px}.btn.secondary{background:#33233c}.btn.green{background:#176e4b}.btn.red{background:#762936}.btn.amber{background:#74561a}.row{display:flex;gap:8px;flex-wrap:wrap}.row .btn{flex:1;min-width:110px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.stat{background:#130d18;border:1px solid #3c2944;border-radius:15px;padding:12px;text-align:center}.stat b{font-size:22px;display:block}.hidden{display:none!important}.tabs{display:flex;gap:7px;overflow:auto;margin:10px 0 14px}.tab{white-space:nowrap;border:1px solid var(--line);background:#26192d;color:#ddd;border-radius:999px;padding:10px 13px}.tab.on{background:linear-gradient(135deg,var(--pink),var(--violet));border-color:transparent}.item{padding:13px;border:1px solid #3d2b47;border-radius:16px;background:#150e1a;margin-top:9px}.notice{padding:12px;border:1px solid var(--line);border-radius:14px;background:#2b2031;color:var(--muted);line-height:1.5}.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900;margin:4px 4px 4px 0}.pending{background:#49381e;color:#ffd685}.approved{background:#173d30;color:#70ebbb}.rejected{background:#4a2028;color:#ff9cab}.info{background:#292052;color:#d6d0ff}.user{display:grid;grid-template-columns:90px 1fr;gap:12px}.selfie{width:90px;height:90px;border-radius:16px;object-fit:cover;background:#0d0811;border:1px solid var(--line)}.chat{height:350px;overflow:auto;border:1px solid var(--line);border-radius:15px;background:#100b14;padding:11px}.bubble{max-width:82%;padding:10px 12px;border-radius:14px;background:#35243d;margin:7px 0}.bubble.mine{margin-left:auto;background:#5d2c55}.sectionTitle{display:flex;justify-content:space-between;align-items:center;gap:10px}.dangerBorder{border-color:#7e3340}.unread{border-color:var(--pink);box-shadow:0 0 0 1px rgba(255,79,139,.25)}@media(max-width:720px){.grid2{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.user{grid-template-columns:70px 1fr}.selfie{width:70px;height:70px}}
+  </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div class="brand">ТАНИЛ · АДМИН</div><a class="back" href="./">Сайт руу</a></div>
+  <div class="top"><div class="brand">ТАНИЛ · ЗУУЧЛАЛЫН АДМИН</div><a href="./" style="color:#fff;text-decoration:none;font-weight:850">Сайт руу</a></div>
 
   <section id="loginCard" class="card">
     <h1>Админ нэвтрэх</h1>
-    <div class="small">Админ эрхтэй бүртгэлийн утасны дугаар, 6 оронтой PIN-ээ оруулна.</div>
-    <input id="phone" class="field" inputmode="numeric" maxlength="8" placeholder="Утасны дугаар">
+    <input id="phone" class="field" inputmode="numeric" maxlength="8" placeholder="Админ утас">
     <input id="pin" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6 оронтой PIN">
     <button id="loginBtn" class="btn full">Нэвтрэх</button>
-    <div id="loginMsg" class="small" style="margin-top:10px"></div>
+    <div id="loginMsg" class="small"></div>
   </section>
 
   <section id="panel" class="hidden">
-    <div class="card">
-      <div class="top"><div><h2>Админ самбар</h2><div id="who" class="small"></div></div><button id="logoutBtn" class="btn secondary">Гарах</button></div>
-      <div class="stats">
-        <div class="stat"><b id="pendingCount">0</b><span class="small">Төлбөр хүлээгдэж буй</span></div>
-        <div class="stat"><b id="approvedCount">0</b><span class="small">Зөвшөөрсөн</span></div>
-        <div class="stat"><b id="pinCount">0</b><span class="small">PIN хүсэлт</span></div>
-        <div class="stat"><b id="chatCount">0</b><span class="small">Удирдлагатай чат</span></div>
-      </div>
-      <button id="refreshBtn" class="btn full secondary">Бүгдийг шинэчлэх</button>
-    </div>
+    <div class="card"><div class="sectionTitle"><div><h2>Удирдлагын самбар</h2><div id="who" class="small"></div></div><button id="logoutBtn" class="btn secondary">Гарах</button></div><div class="stats"><div class="stat"><b id="userCount">0</b><span class="small">Нийт бүртгэл</span></div><div class="stat"><b id="verifiedCount">0</b><span class="small">Баталгаажсан</span></div><div class="stat"><b id="requestCount">0</b><span class="small">Идэвхтэй хүсэлт</span></div><div class="stat"><b id="introCount">0</b><span class="small">Танилцуулга</span></div><div class="stat"><b id="supportCount">0</b><span class="small">Шинэ зурвас</span></div></div></div>
+    <div class="tabs"><button class="tab on" data-tab="usersTab">Гишүүд</button><button class="tab" data-tab="requestsTab">Хүсэлтүүд</button><button class="tab" data-tab="introductionsTab">Танилцуулга</button><button class="tab" data-tab="supportTab">Оператор</button><button class="tab" data-tab="settingsTab">Тохиргоо</button></div>
 
-    <div class="card">
-      <div class="sectionTitle"><h2>Удирдлагатай профайл үүсгэх</h2><span class="state approved">ИЛ ТОД</span></div>
-      <div class="notice">Эдгээр профайл хэрэглэгчийн талд “ТАНИЛ багийн удирдлагатай профайл” гэж харагдана. Оператор зөвхөн ийм профайлын чатад хариулна.</div>
-      <div class="grid2" style="margin-top:10px">
-        <div>
-          <input id="mpName" class="field" placeholder="Нэр">
-          <input id="mpAge" class="field" type="number" min="18" max="80" placeholder="Нас">
-          <select id="mpGender" class="field"><option value="">Хүйс</option><option>Эмэгтэй</option><option>Эрэгтэй</option><option>Бусад</option></select>
-          <input id="mpCity" class="field" placeholder="Хот, аймаг">
-        </div>
-        <div>
-          <input id="mpJob" class="field" placeholder="Ажил / дүрийн тайлбар">
-          <input id="mpGoal" class="field" placeholder="Танилцах зорилго">
-          <input id="mpPhoto" class="field" type="file" accept="image/*">
-          <textarea id="mpBio" class="field textarea" placeholder="Товч танилцуулга"></textarea>
-        </div>
-      </div>
-      <button id="createManagedBtn" class="btn full">Профайл үүсгэх</button>
-      <div id="managedMsg" class="small" style="margin-top:8px"></div>
-      <div id="managedProfiles"></div>
-    </div>
+    <section id="usersTab" class="tabPage">
+      <div class="card"><div class="sectionTitle"><h2>Бүртгэлтэй гишүүд</h2><button id="syncStatsBtn" class="btn secondary">Бодит тоо шинэчлэх</button></div><input id="userSearch" class="field" placeholder="Нэр, утас, хотоор хайх"><div id="users"></div></div>
+    </section>
 
-    <div class="card">
-      <div class="sectionTitle"><h2>Операторын чат inbox</h2><span id="unreadCount" class="state pending">0 ШИНЭ</span></div>
-      <div id="managedChats"><div class="small">Уншиж байна...</div></div>
-    </div>
+    <section id="requestsTab" class="tabPage hidden">
+      <div class="card"><h2>Танилцах хүсэлтүүд</h2><select id="requestFilter" class="field"><option value="all">Бүгд</option><option value="pending">Хүлээгдэж буй</option><option value="active">Хайж байгаа</option><option value="cancel_requested">Цуцлах хүсэлт</option><option value="completed">Дууссан</option></select><div id="requests"></div></div>
+    </section>
 
-    <div id="chatCard" class="card hidden">
-      <div class="sectionTitle"><div><h2 id="chatTitle">Чат</h2><div id="chatMeta" class="small"></div></div><button id="closeChatBtn" class="btn secondary">Хаах</button></div>
-      <div class="notice">Хэрэглэгч энэ профайлыг ТАНИЛ баг удирдаж болохыг чатны толгой хэсэгт харна.</div>
-      <div id="chatBox" class="chat" style="margin-top:10px"></div>
-      <div class="row" style="margin-top:8px"><input id="chatInput" class="field" maxlength="500" placeholder="Профайлын өмнөөс хариу бичих..."><button id="sendChatBtn" class="btn">Илгээх</button></div>
-    </div>
+    <section id="introductionsTab" class="tabPage hidden">
+      <div class="card"><h2>Хоёр хүнийг санал болгох</h2><div class="notice">Хэрэглэгчид эхлээд нэргүй ерөнхий мэдээлэл харна. Хоёулаа зөвшөөрсний дараа “Холбоо нээх” дарж утсыг харилцан өгнө.</div><div class="grid2" style="margin-top:10px"><select id="userA" class="field"></select><select id="userB" class="field"></select></div><input id="introNote" class="field" maxlength="300" placeholder="Админы тайлбар (заавал биш)"><button id="createIntroBtn" class="btn full">Танилцах санал илгээх</button><div id="introMsg" class="small"></div></div>
+      <div class="card"><h2>Илгээсэн саналууд</h2><div id="introductions"></div></div>
+    </section>
 
-    <div class="grid2">
-      <div class="card">
-        <h2>Төлбөрийн хүсэлтүүд</h2>
-        <div class="notice">Админд хэрэглэгчийн утасны дугаар харагдана.</div>
-        <div id="payments"></div>
-      </div>
+    <section id="supportTab" class="tabPage hidden">
+      <div class="grid2"><div class="card"><h2>Операторын inbox</h2><div id="threads"></div></div><div id="supportChatCard" class="card hidden"><div class="sectionTitle"><div><h2 id="supportTitle">Зурвас</h2><div id="supportMeta" class="small"></div></div><button id="closeSupportBtn" class="btn secondary">Хаах</button></div><div id="supportChat" class="chat"></div><div class="row" style="margin-top:8px"><input id="supportInput" class="field" maxlength="500" placeholder="Хариу бичих..."><button id="supportSendBtn" class="btn">Илгээх</button></div></div></div>
+    </section>
 
-      <div class="card">
-        <h2>PIN сэргээх хүсэлт</h2>
-        <div id="pins"></div>
-      </div>
-    </div>
+    <section id="settingsTab" class="tabPage hidden">
+      <div class="card"><h2>Үйлчилгээний тохиргоо</h2><div class="grid2"><div><label class="small">Энгийн хүсэлтийн үнэ</label><input id="regularPrice" class="field" type="number"></div><div><label class="small">Шуурхай хүсэлтийн үнэ</label><input id="urgentPrice" class="field" type="number"></div><div><label class="small">Үнэгүй энгийн хүсэлтийн хязгаар</label><input id="promoLimit" class="field" type="number"></div><div><label class="small">Урамшуулал</label><select id="promoOpen" class="field"><option value="true">Нээлттэй</option><option value="false">Хаалттай</option></select></div><div><label class="small">Банк</label><input id="bankName" class="field"></div><div><label class="small">Данс</label><input id="bankAccount" class="field"></div><div><label class="small">Хүлээн авагч</label><input id="bankHolder" class="field"></div></div><button id="saveSettingsBtn" class="btn full">Хадгалах</button><div id="settingsMsg" class="small"></div></div>
+    </section>
   </section>
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
-'use strict';
-const cfg=window.TANIL_FIREBASE_CONFIG;
-if(!firebase.apps.length)firebase.initializeApp(cfg);
-const auth=firebase.auth(),db=firebase.firestore();
-const $=id=>document.getElementById(id);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const phoneEmail=p=>`${String(p).replace(/\D/g,'')}@tanil.app`;
-const money=n=>new Intl.NumberFormat('mn-MN').format(Number(n||0))+'₮';
-const formatTime=t=>{try{return t?.toDate?t.toDate().toLocaleString('mn-MN'):''}catch{return ''}};
-const serverTime=()=>firebase.firestore.FieldValue.serverTimestamp();
-const DISCLOSURE='Энэ профайлын мессежийг ТАНИЛ багийн ажилтан бичиж болно.';
-let activeChatId=null,activeChatData=null,activeChatProfile=null,chatMessagesUnsub=null;
-let payUnsub=null,pinUnsub=null,profilesUnsub=null,chatsUnsub=null;
-let cachedPayments=[],cachedPins=[],cachedProfiles=[],cachedChats=[];
-
-async function isAdmin(uid){const s=await db.collection('admins').doc(uid).get();return s.exists&&s.data().active===true}
-function firebaseError(e){console.error(e);return e?.message||'Алдаа гарлаа.'}
-
-async function login(){
-  $('loginMsg').textContent='Нэвтэрч байна...';
-  try{
-    const ph=$('phone').value.replace(/\D/g,''),pn=$('pin').value.trim();
-    if(ph.length!==8||pn.length!==6)throw new Error('8 оронтой утас, 6 оронтой PIN оруулна.');
-    const c=await auth.signInWithEmailAndPassword(phoneEmail(ph),pn);
-    if(!await isAdmin(c.user.uid)){await auth.signOut();throw new Error('Энэ бүртгэл админ эрхгүй байна.');}
-    await showPanel();
-  }catch(e){$('loginMsg').textContent=firebaseError(e)}
-}
-
-async function showPanel(){
-  const u=auth.currentUser;
-  if(!u||!await isAdmin(u.uid)){showLogin();return}
-  $('loginCard').classList.add('hidden');$('panel').classList.remove('hidden');
-  $('who').textContent=u.email.replace('@tanil.app','');
-  startRealtime();
-}
-
-function showLogin(){
-  stopRealtime();
-  $('panel').classList.add('hidden');$('loginCard').classList.remove('hidden');
-}
-
-function stopRealtime(){
-  [payUnsub,pinUnsub,profilesUnsub,chatsUnsub,chatMessagesUnsub].forEach(fn=>{if(typeof fn==='function')fn()});
-  payUnsub=pinUnsub=profilesUnsub=chatsUnsub=chatMessagesUnsub=null;
-}
-
-function startRealtime(){
-  stopRealtime();
-  payUnsub=db.collection('paymentRequests').orderBy('createdAt','desc').limit(300).onSnapshot(s=>{cachedPayments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()});
-  pinUnsub=db.collection('pinResetRequests').where('status','==','pending').limit(200).onSnapshot(s=>{cachedPins=s.docs.map(d=>({id:d.id,...d.data()}));renderPins()});
-  profilesUnsub=db.collection('managedProfiles').orderBy('createdAt','desc').limit(100).onSnapshot(s=>{cachedProfiles=s.docs.map(d=>({id:d.id,...d.data()}));renderManagedProfiles();renderManagedChats()});
-  chatsUnsub=db.collection('chats').where('mode','==','managed').limit(200).onSnapshot(s=>{cachedChats=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAt?.seconds||0)-(a.updatedAt?.seconds||0));renderManagedChats()});
-}
-
-function updateStats(){
-  $('pendingCount').textContent=cachedPayments.filter(x=>x.status==='pending').length;
-  $('approvedCount').textContent=cachedPayments.filter(x=>x.status==='approved').length;
-  $('pinCount').textContent=cachedPins.length;
-  $('chatCount').textContent=cachedChats.length;
-  const unread=cachedChats.filter(x=>x.adminUnread===true).length;
-  $('unreadCount').textContent=`${unread} ШИНЭ`;
-}
-
-function renderPayments(){
-  updateStats();
-  $('payments').innerHTML=cachedPayments.length?cachedPayments.map(r=>`<div class="item"><b>📱 ${esc(r.phone)}</b><div class="small">${esc(r.planType||'Premium')} · ${esc(r.duration||'')} · ${money(r.price)}<br>${formatTime(r.createdAt)}</div><span class="state ${esc(r.status)}">${r.status==='pending'?'ХҮЛЭЭГДЭЖ БУЙ':r.status==='approved'?'ЗӨВШӨӨРСӨН':'ТАТГАЛЗСАН'}</span>${r.status==='pending'?`<div class="row"><button class="btn green" onclick="setStatus('${r.id}','approved')">Зөвшөөрөх</button><button class="btn red" onclick="setStatus('${r.id}','rejected')">Татгалзах</button></div>`:''}</div>`).join(''):'<div class="small">Хүсэлт алга.</div>';
-}
-
-function renderPins(){
-  updateStats();
-  $('pins').innerHTML=cachedPins.length?cachedPins.map(r=>`<div class="item"><b>📱 ${esc(r.phone)}</b><div class="small">${formatTime(r.createdAt)}</div><div class="small">Firebase Authentication → Users хэсгээс тухайн хэрэглэгчийн нууц үгийг шинэчилнэ. Дараа нь хүсэлтийг хаана.</div><button class="btn secondary full" onclick="finishPin('${r.id}')">Шийдвэрлэсэн гэж тэмдэглэх</button></div>`).join(''):'<div class="small">Хүсэлт алга.</div>';
-}
-
-function renderManagedProfiles(){
-  $('managedProfiles').innerHTML=cachedProfiles.length?cachedProfiles.map(p=>`<div class="item profileRow"><img class="avatar" src="${esc(p.photo||'')}" alt=""><div><b>${esc(p.name)}, ${Number(p.age||18)}</b><div class="small">${esc(p.gender||'')} · ${esc(p.city||'')} · ${esc(p.job||'')}</div><span class="state ${p.active?'approved':'rejected'}">${p.active?'ИДЭВХТЭЙ':'ИДЭВХГҮЙ'}</span><button class="btn ${p.active?'red':'green'}" onclick="toggleManaged('${p.id}',${p.active?'false':'true'})">${p.active?'Идэвхгүй болгох':'Идэвхжүүлэх'}</button></div></div>`).join(''):'<div class="small" style="margin-top:10px">Удирдлагатай профайл алга.</div>';
-}
-
-async function renderManagedChats(){
-  updateStats();
-  if(!cachedChats.length){$('managedChats').innerHTML='<div class="small">Одоогоор чат алга.</div>';return}
-  const rows=await Promise.all(cachedChats.map(async chat=>{
-    const profile=cachedProfiles.find(p=>p.id===chat.managedProfileId)||null;
-    let user={name:'Хэрэглэгч',phone:''};
-    const uid=(chat.memberUids||[])[0];
-    if(uid){try{const s=await db.collection('users').doc(uid).get();if(s.exists)user={...user,...s.data()}}catch(_){}}
-    return{chat,profile,user};
-  }));
-  $('managedChats').innerHTML=rows.map(({chat,profile,user})=>`<div class="item ${chat.adminUnread?'unread':''}" onclick="openManagedChat('${chat.id}')" style="cursor:pointer"><b>${esc(profile?.name||'Удирдлагатай профайл')} ↔ ${esc(user.name||user.phone||'Хэрэглэгч')}</b><div class="small">📱 ${esc(user.phone||'')}<br>${esc(chat.lastMessage||'Одоогоор мессеж алга.')}<br>${formatTime(chat.updatedAt)}</div>${chat.adminUnread?'<span class="state pending">ШИНЭ МЕССЕЖ</span>':''}</div>`).join('');
-}
-
-async function compressFile(file){
-  if(!file||!file.type.startsWith('image/'))throw new Error('Зураг файл сонгоно уу.');
-  const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
-  return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{const max=720,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);let q=.75,out=c.toDataURL('image/jpeg',q);while(out.length>620000&&q>.38){q-=.08;out=c.toDataURL('image/jpeg',q)}if(out.length>850000)reject(new Error('Зураг хэт том байна.'));else resolve(out)};img.onerror=()=>reject(new Error('Зургийг унших боломжгүй.'));img.src=dataUrl});
-}
-
-async function createManagedProfile(){
-  $('managedMsg').textContent='Үүсгэж байна...';
-  try{
-    const name=$('mpName').value.trim(),age=Number($('mpAge').value),gender=$('mpGender').value,city=$('mpCity').value.trim(),job=$('mpJob').value.trim(),goal=$('mpGoal').value.trim(),bio=$('mpBio').value.trim(),file=$('mpPhoto').files[0];
-    if(!name||age<18||age>80||!gender||!city||!job||!goal||!bio||!file)throw new Error('Бүх талбар болон зургийг бөглөнө үү.');
-    const photo=await compressFile(file);
-    await db.collection('managedProfiles').add({name,age,gender,city,job,goal,bio,photo,status:'Идэвхтэй',active:true,interests:['ТАНИЛ багийн хөтлөгч'],disclosure:DISCLOSURE,createdAt:serverTime(),updatedAt:serverTime()});
-    ['mpName','mpAge','mpCity','mpJob','mpGoal','mpBio'].forEach(id=>$(id).value='');$('mpGender').value='';$('mpPhoto').value='';
-    $('managedMsg').textContent='Профайл үүслээ.';
-  }catch(e){$('managedMsg').textContent=firebaseError(e)}
-}
-
-window.toggleManaged=async(id,active)=>{try{await db.collection('managedProfiles').doc(id).update({active,status:active?'Идэвхтэй':'Идэвхгүй',updatedAt:serverTime()})}catch(e){alert(firebaseError(e))}};
-
-window.setStatus=async(id,status)=>{
-  try{
-    const ref=db.collection('paymentRequests').doc(id);
-    await db.runTransaction(async tx=>{
-      // Firestore transaction-д бүх уншилтыг бичилтээс өмнө хийдэг.
-      const s=await tx.get(ref);if(!s.exists)throw new Error('Хүсэлт олдсонгүй.');
-      const r=s.data();
-      const days={basic1:30,basic6:180,basic12:365,deep1:30,deep6:180,deep12:365}[r.planId];
-      if(!days)throw new Error('Багцын мэдээлэл буруу байна.');
-      let ur=null,userUpdate=null;
-      if(status==='approved'){
-        ur=db.collection('users').doc(r.uid);
-        const us=await tx.get(ur);if(!us.exists)throw new Error('Хэрэглэгч олдсонгүй.');
-        const old=Number(us.data()?.membershipUntil||0);
-        userUpdate={membershipUntil:Math.max(Date.now(),old)+days*86400000,premium:true};
-      }
-      tx.update(ref,{status,reviewedAt:serverTime(),reviewedBy:auth.currentUser.uid});
-      if(ur&&userUpdate)tx.update(ur,userUpdate);
-    });
-  }catch(e){alert(firebaseError(e))}
-};
-
-window.finishPin=async id=>{try{await db.collection('pinResetRequests').doc(id).update({status:'done',reviewedAt:serverTime(),reviewedBy:auth.currentUser.uid})}catch(e){alert(firebaseError(e))}};
-
-window.openManagedChat=async id=>{
-  try{
-    const s=await db.collection('chats').doc(id).get();if(!s.exists)throw new Error('Чат олдсонгүй.');
-    const chat={id:s.id,...s.data()};if(chat.mode!=='managed')throw new Error('Энэ чат операторын чат биш байна.');
-    const profile=cachedProfiles.find(p=>p.id===chat.managedProfileId)||(await db.collection('managedProfiles').doc(chat.managedProfileId).get()).data();
-    const uid=(chat.memberUids||[])[0];let user={name:'Хэрэглэгч',phone:''};if(uid){const us=await db.collection('users').doc(uid).get();if(us.exists)user={...user,...us.data()}}
-    activeChatId=id;activeChatData=chat;activeChatProfile={id:chat.managedProfileId,...profile};
-    $('chatTitle').textContent=`${activeChatProfile.name} ↔ ${user.name||user.phone}`;
-    $('chatMeta').textContent=`Хэрэглэгч: ${user.phone||uid}`;
-    $('chatCard').classList.remove('hidden');$('chatCard').scrollIntoView({behavior:'smooth'});
-    if(chatMessagesUnsub)chatMessagesUnsub();
-    chatMessagesUnsub=db.collection('chats').doc(id).collection('messages').orderBy('createdAt','asc').limit(300).onSnapshot(ms=>{
-      $('chatBox').innerHTML=ms.empty?'<div class="small">Одоогоор мессеж алга.</div>':ms.docs.map(d=>{const m=d.data(),mine=m.senderType==='managed_profile';return `<div class="bubble ${mine?'mine':''}"><b>${mine?esc(activeChatProfile.name):esc(user.name||'Хэрэглэгч')}</b><br>${esc(m.text)}</div>`}).join('');$('chatBox').scrollTop=$('chatBox').scrollHeight;
-    });
-    await db.collection('chats').doc(id).update({adminUnread:false});
-  }catch(e){alert(firebaseError(e))}
-};
-
-async function sendManagedMessage(){
-  const text=$('chatInput').value.trim();if(!activeChatId||!activeChatProfile||!text)return;
-  $('chatInput').value='';
-  try{
-    const ref=db.collection('chats').doc(activeChatId);
-    await ref.collection('messages').add({senderType:'managed_profile',senderProfileId:activeChatProfile.id,text:text.slice(0,500),createdAt:serverTime()});
-    await ref.update({updatedAt:serverTime(),lastMessage:text.slice(0,120),lastSenderType:'managed_profile',adminUnread:false,userUnread:true});
-  }catch(e){$('chatInput').value=text;alert(firebaseError(e))}
-}
-
-function closeChat(){if(chatMessagesUnsub){chatMessagesUnsub();chatMessagesUnsub=null}activeChatId=activeChatData=activeChatProfile=null;$('chatCard').classList.add('hidden')}
-
-$('loginBtn').onclick=login;
-$('refreshBtn').onclick=startRealtime;
-$('logoutBtn').onclick=async()=>{stopRealtime();await auth.signOut();showLogin()};
-$('createManagedBtn').onclick=createManagedProfile;
-$('sendChatBtn').onclick=sendManagedMessage;
-$('chatInput').onkeydown=e=>{if(e.key==='Enter')sendManagedMessage()};
-$('closeChatBtn').onclick=closeChat;
-auth.onAuthStateChanged(async u=>{if(u&&await isAdmin(u.uid))showPanel();else showLogin()});
-</script>
+<script src="admin.js?v=100"></script>
 </body>
 </html>
