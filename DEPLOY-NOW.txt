@@ -1,0 +1,10 @@
+1. GitHub repository-ийн үндсэн хэсэгт энэ ZIP-ийн бүх 7 үндсэн файлыг upload/replace хийнэ.
+2. Firebase Console → Firestore Database → Rules руу орно.
+3. firestore.rules файлын БҮХ кодыг хуучин Rules-ийн оронд тавина.
+4. Publish дарна.
+5. Сайтаас гараад дахин нэвтэрнэ, эсвэл Ctrl+F5 / browser cache refresh хийнэ.
+
+Анхаарах нь:
+- Хуучин Rules дотор chats-ийн талбар `members` байсан.
+- Шинэ сайт `memberUids` ашигладаг.
+- Rules-ээ Publish хийгээгүй үед админ төлбөр зөвшөөрсөн байсан ч чат permission-denied өгнө.

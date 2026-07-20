@@ -112,8 +112,15 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.toUid is string
+        && likeId == request.auth.uid + '_' + request.resource.data.toUid
         && request.resource.data.createdAt == request.time;
-      allow read, delete: if signedIn() && resource.data.fromUid == request.auth.uid;
+
+      // Байхгүй like document-ийг шалгах get() хүсэлт permission-denied болохоос хамгаална.
+      allow get: if signedIn() && likeId.matches(request.auth.uid + '_.*');
+      allow list: if false;
+      allow delete: if signedIn()
+        && likeId.matches(request.auth.uid + '_.*')
+        && resource.data.fromUid == request.auth.uid;
       allow update: if false;
     }
 
